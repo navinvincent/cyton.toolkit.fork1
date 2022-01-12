@@ -1,8 +1,10 @@
+using Revise
 
-add_paths = ["src/probability", "src/cells"]
+add_paths = ["probability", "cells", "space"]
 
 for p in add_paths
-  if !(p in LOAD_PATH)
-    push!(LOAD_PATH, p)
+  pp = "src/" * p
+  if !(pp in LOAD_PATH)
+    push!(LOAD_PATH, pp)
   end
 end

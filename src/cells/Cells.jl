@@ -1,7 +1,7 @@
 module Cells
 using Agents, DistributionParms
 
-export Cell
+export Cell, remaining
 
 mutable struct Cell <: AbstractAgent
   id::Int
@@ -14,5 +14,7 @@ mutable struct Cell <: AbstractAgent
     return new(id, pos, d, draw(d), 0)
   end
 end
+
+remaining(cell::Cell, tm::Float64) = cell.λ - (tm - cell.start)
 
 end

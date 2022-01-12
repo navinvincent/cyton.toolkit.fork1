@@ -3,7 +3,7 @@ struct PoissonParms <: DistributionParmSet
   λ::Float64
   useful_max::Float64
   function PoissonParms(λ)
-    return new(λ, 5*λ)
+    return new(λ, 5λ)
   end
 end
 

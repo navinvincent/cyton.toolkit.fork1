@@ -1,6 +1,6 @@
 module DistributionParms
 
-export DistributionParmSet, PoissonParms, LogNormalParms, draw
+export DistributionParmSet, PoissonParms, LogNormalParms, draw, plot_pdf
 
 abstract type DistributionParmSet end
 
