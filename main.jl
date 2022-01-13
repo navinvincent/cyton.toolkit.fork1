@@ -1,12 +1,10 @@
-include("abmPlay.jl")
-
-using Agents, InteractiveDynamics, Plots, DistributionParms, Cells
+using Agents, InteractiveDynamics, Plots, Cyton
 plotlyjs()
 
 model_time(model::AgentBasedModel, dt::Float64) = model.properties["step_cnt"] * dt 
 
 function init(; N=100, distributionParms=LogNormalParms(1.5, 0.3))
-  space = nothing #GridSpace((N, N); periodic = false)
+  space = nothing
   scheduler = Schedulers.fastest
   properties = Dict("step_cnt" => 0)
   model = AgentBasedModel(Cell, space; properties, scheduler)
@@ -14,7 +12,7 @@ function init(; N=100, distributionParms=LogNormalParms(1.5, 0.3))
   for n in 1:N
     for m in 1:N
       agent = Cell((n-1)*N+m, (n, m), distributionParms)
-      add_agent_pos!(agent, model)
+      add_agent_single!(agent, model)
     end
   end
 
@@ -27,11 +25,7 @@ print("Time to initialise:")
 dt = 0.1
 function stepper(agent::Cell, model::AgentBasedModel)
   time = model_time(model, dt)
-  if time > agent.λ + agent.start
-    agent.start = time
-    agent.λ = draw(agent.d)
-    agent.deaths += 1
-  end
+  step_cell(agent, time, model)
 end
 
 function model_stepper(model)
