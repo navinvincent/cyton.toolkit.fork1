@@ -1,44 +1,52 @@
-using Agents, DistributionParms, CellModules
+using Agents
 
-mutable struct Cell <: AbstractAgent
+mutable struct CellAgent <: AbstractAgent
   "These are required by the ABM framework"
   id::Int
   pos::NTuple{2, Int}
+  cell::Cell
+end
 
+abstract type AbstractCell end
+struct Cell <: AbstractCell
   "Cell specific state"
   birth::Float64
-  modules::AbstractArray{CellModule}
+  modules::AbstractDict{AbstractString, CellModule}
   deathAccumulator::DeathAccumulator
+  diffentiationAccumulator::DiffentiationAccumulator
   divisionAccumulator::DivisionAccumulator
   
-  function Cell(id::Int, pos::NTuple{2, Int}, birth::Float64)
-    return new(id, pos, birth, [])
+  function Cell(birth::Float64)
+    return new(birth, Dict{String, CellModule}(), nothing, nothing, nothing)
   end
 end
 
-add_module(cell::Cell, cellModule::CellModule) = append!(cell.modules, cellModule)
+addModule(cell::Cell, name::AbstractString, cellModule::CellModule) = cell.modules[name] = cellModule
 
-function step_cell(cell::Cell, time::Float64, model::AgentBasedModel)
-  if time > cell.λ + cell.birth
-    cell.birth = time
-    cell.λ = draw(cell.d)
-    cell.deaths += 1
-  end
+function step(agent::CellAgent, time::Float64, dt::Float64, model::AgentBasedModel)
+  cell = agent.cell
+
   for cellModule in cell.modules
-    step_module(cellModule, time)
+    step(cellModule.second, time, dt)
   end
-  if should_die(cell.deathAccumulator)
+
+  if shouldDie(cell.deathAccumulator, time)
     die(cell)
     kill_agent(cell, model)
   end
-  if should_divide(cell.divisionAccumulator)
-    new_cell = divide(cell)
+
+  if shouldDivide(cell.divisionAccumulator, time)
+    new_cell = divide(cell, time)
     add_agent_single!(new_cell, model)
+  end
+
+  if shouldDifferentiate(cell.diffentationAccumulator, time)
+    differentiate(cell, time)
   end
 end
 
 age(cell::Cell, time::Float64) = time - cell.birth
-remaining(cell::Cell, time::Float64) = cell.λ - age(cell, time)
 
 die(cell::Cell) = nothing
-divide(cell::Cell) = error("not implemented")
+divide(cell::Cell, time::Float64) = error("not implemented")
+differentiate(cell::Cell, time::Float64) = error("not implemented")
