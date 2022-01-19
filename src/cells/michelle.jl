@@ -1,4 +1,19 @@
-using Cyton
+import Cyton: 
+  LogNormalParms,
+  DeathAccumulator,
+  CellModule,
+  DifferentationAccumulator,
+  DivisionAccumulator,
+  DeathAccumulator,
+  SimpleDecay,
+  shouldDie,
+  shouldDifferentiate,
+  shouldDivide,
+  Cell,
+  draw,
+  addModule
+
+
 
 proteins = ["BCL2", "BCLxL", "MCL1", "BIM"]
 
@@ -11,19 +26,19 @@ struct ThresholdDeath <: DeathAccumulator
   "The threshold below which the cell will die"
   threshold::Float64
   "The protein level weights"
-  weights::Dict{AbstractString, Float64}
-  "References to the current protein leveld"
-  proteins::Dict{AbstractString, SimpleDecay}
+  weights::AbstractDict{AbstractString, Float64}
+  "References to the current protein level"
+  proteinLevels::AbstractDict{AbstractString, CellModule}
 
-  function ThresholdDeath(proteins::Dict{AbstractString, SimpleDecay}) 
+  function ThresholdDeath(proteinLevels::Dict{AbstractString, CellModule}) 
     return new(10.0,
-    weights = Dict{AbstractString, Float64}([
+    Dict{AbstractString, Float64}([
       "BCL2"=>5,
       "BCLxL"=>5,
       "MCL1"=>5,
       "BIM"=>-5,
     ]),
-    proteins
+    proteinLevels
     )
   end
 end
@@ -32,37 +47,36 @@ function shouldDie(deathAccumulator::ThresholdDeath, time::Float64)
   sum = 0.0
   for we in deathAccumulator.weights
     p = we.first
-    w = w.second
-    sum += w * proteins[p]
+    w = we.second
+    sum += w * deathAccumulator.proteinLevels[p].amount
   end
 
   return sum < deathAccumulator.threshold
 end
 
-
 """
 There are 3 differentention states
-* Pre first division
+* Before first division
 * Dividing
 * Division destiny
 """
-struct PreDivisionAccumulator <: DiffentationAccumulator 
+struct PreDivisionAccumulator <: DifferentationAccumulator
   start_diving::Float64
 end
-cellType(diffentationAccumulator::PreDivisionAccumulator) = "preparing to divide"
+cellType(differentationAccumulator::PreDivisionAccumulator) = "preparing to divide"
 
-struct PostDivisionAccumulator <: DiffentationAccumulator end
-cellType(diffentationAccumulator::PostDivisionAccumulator) = "division destiny"
+struct PostDivisionAccumulator <: DifferentationAccumulator end
+cellType(differentationAccumulator::PostDivisionAccumulator) = "division destiny"
 
-struct DividingDivisionAccumulator <: DiffentationAccumulator
+struct DividingDivisionAccumulator <: DifferentationAccumulator
   stop_dividing::Float64
 end
-cellType(diffentationAccumulator::DividingDivisionAccumulator) = "dividing"
+cellType(differentationAccumulator::DividingDivisionAccumulator) = "dividing"
 
 """
 There are 2 division states
 * Before first division and after division destiny. Cells don't divide in this state
-* The perion when cells divide
+* The period when cells divide
 """
 struct NonDividingDivisionAccumulator <: DivisionAccumulator end
 shouldDivide(divisionAccucumulator::NonDividingDivisionAccumulator, time::Float64) = false
@@ -74,9 +88,11 @@ shouldDivide(divisionAccucumulator::SimpleDivisionAccumulator, time::Float64) = 
 
 function createMichelleCell(birth::Float64=0.0) 
   michelleCell = Cell(birth)
+  michelleCell.divisionAccumulator = nothing
+  michelleCell.differentiationAccumulator = nothing
 
   for p in proteins
-    addModule(p, SimpleDecay(draw(d_amount), draw(d_λ)))
+    addModule(michelleCell, p, SimpleDecay(draw(d_amount), draw(d_λ)))
   end
 
   michelleCell.deathAccumulator = ThresholdDeath(michelleCell.modules)
