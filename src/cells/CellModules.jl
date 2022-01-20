@@ -30,4 +30,4 @@ mutable struct SimpleDecay <: Accumulator
   λ::Float64
 end
 
-step(death::SimpleDecay, time::Float64, dt::Float64) = death.amount = death.amount * exp(-dt/death.λ)
+step(death::SimpleDecay, time::Float64, Δt::Float64) = death.amount = death.amount * exp(-Δt/death.λ)

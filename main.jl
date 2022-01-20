@@ -8,16 +8,18 @@ include("src/cells/michelle.jl")
 model_time(model::AgentBasedModel, dt::Float64) = model.properties["step_cnt"] * dt 
 
 function init(; N=10)
-  space = nothing
+  space = GridSpace((N*10, N*10), periodic = false)
   scheduler = Schedulers.fastest
   properties = Dict("step_cnt" => 0)
   model = AgentBasedModel(CellAgent, space; properties, scheduler)
 
-  for n in 1:N
-    for m in 1:N
+  id = 1
+  for m in 1:N
+    for n in 1:N
       cell = createMichelleCell()
-      agent = CellAgent(cell)
-      add_agent_pos!(agent, model)
+      agent = CellAgent(id, (m, n), cell)
+      add_agent_single!(agent, model)
+      id += 1
     end
   end
 
@@ -38,8 +40,7 @@ function model_stepper(model)
 end
 
 print("Time to run:")
-#@time 
-step!(model, stepper, model_stepper, 200)
+@time step!(model, stepper, model_stepper, 200)
 
 print("Time to plot: ")
 @time begin

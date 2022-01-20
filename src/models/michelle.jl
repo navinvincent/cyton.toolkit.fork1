@@ -13,8 +13,6 @@ import Cyton:
   draw,
   addModule
 
-
-
 proteins = ["BCL2", "BCLxL", "MCL1", "BIM"]
 
 "A protein half life of around 24 hours"
@@ -86,7 +84,7 @@ struct SimpleDivisionAccumulator <: DivisionAccumulator
 end
 shouldDivide(divisionAccucumulator::SimpleDivisionAccumulator, time::Float64) = time >= divisionAccucumulator.next_division
 
-function createMichelleCell(birth::Float64=0.0) 
+function cellFactory(birth::Float64=0.0) 
   michelleCell = Cell(birth)
   michelleCell.divisionAccumulator = nothing
   michelleCell.differentiationAccumulator = nothing
