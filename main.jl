@@ -1,22 +1,23 @@
-using Agents, InteractiveDynamics, Plots
+using Agents, InteractiveDynamics, StatsPlots, DataFrames
 plotlyjs()
 
 using Cyton: CellAgent, step
 
-include("src/cells/michelle.jl")
+# include("src/models/michelle.jl")
+include("src/models/simple.jl")
 
-model_time(model::AgentBasedModel, dt::Float64) = model.properties["step_cnt"] * dt 
+model_time(model::AgentBasedModel) = model.properties[:step_cnt] * model.properties[:Δt]
 
 function init(; N=10)
-  space = GridSpace((N*10, N*10), periodic = false)
+  space = GridSpace((N*100, N*100), periodic = false)
   scheduler = Schedulers.fastest
-  properties = Dict("step_cnt" => 0)
+  properties = Dict(:step_cnt => 0, :Δt => 1.0)
   model = AgentBasedModel(CellAgent, space; properties, scheduler)
 
   id = 1
   for m in 1:N
     for n in 1:N
-      cell = createMichelleCell()
+      cell = cellFactory()
       agent = CellAgent(id, (m, n), cell)
       add_agent_single!(agent, model)
       id += 1
@@ -29,29 +30,55 @@ end
 print("Time to initialise:")
 @time model = init()
 
-dt = 0.1
 function stepper(agent::CellAgent, model::AgentBasedModel)
-  time = model_time(model, dt)
-  step(agent, time, dt, model)
+  Δt = model.properties[:Δt]
+  time = model_time(model)
+  step(agent, time, Δt, model)
 end
 
 function model_stepper(model)
-  model.properties["step_cnt"] += 1
+  model.properties[:step_cnt] += 1
 end
 
 print("Time to run:")
-@time step!(model, stepper, model_stepper, 200)
-
-print("Time to plot: ")
 @time begin
-  cells = values(model.agents)
-  tm = model_time(model, dt)
-  lifetimes = collect(remaining(c, tm) for c in cells)
-  lifetimes = sort(lifetimes)
-  ds = 1 .- (1:1:length(lifetimes))/length(lifetimes)
-  h = plot(lifetimes, ds)
-  display(h);
+  counts = DataFrame(time=Int[], total=[], predivision=[], dividing=[], destiny=[], memory=[])
+  for time in 1:200
+    step!(model, stepper, model_stepper)
+
+    cellAgents = values(model.agents)
+    tm = model_time(model)
+    local memoryCnt = 0
+    local preDivisionCnt = 0
+    local dividingCnt = 0
+    local destinyCnt = 0
+    for c in cellAgents
+      ct = c.cell.differentiationAccumulator.cellType
+      if ct == Memory
+        memoryCnt += 1
+        continue
+      end
+      if ct == Undivided
+        preDivisionCnt += 1
+        continue
+      end
+      if ct == Dividing
+        dividingCnt += 1
+        continue
+      end
+      if ct == Destiny
+        destinyCnt += 1
+        continue
+      end
+      error("Unkown cell type $(ct)")
+    end
+    local totalCnt = preDivisionCnt + dividingCnt + destinyCnt + memoryCnt
+    push!(counts, (time, totalCnt, preDivisionCnt, dividingCnt, destinyCnt, memoryCnt))
+  end
 end
 
-println("Done at model time=$(tm)")
+
+h = @df counts plot(:time, [:total :predivision :dividing :destiny :memory])
+display(h)
+println("Done at model time=$(model.properties[:step_cnt]*model.properties[:Δt])")
 

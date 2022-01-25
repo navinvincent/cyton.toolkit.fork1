@@ -6,6 +6,8 @@ abstract type DifferentationAccumulator <: Accumulator end
 
 "Step the cell module forward by one time increment"
 step(cellModule::CellModule, time::Float64, dt::Float64) = error("Not implemented")
+"If not module, do nothing"
+step(_::Nothing, time::Float64, Δt::Float64) = nothing
 
 "This is called every time step. If it return true the cell is removed from the simmulation"
 shouldDie(deathAccumulator::DeathAccumulator, time::Float64) = error("Not implemented")

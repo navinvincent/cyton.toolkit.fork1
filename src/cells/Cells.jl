@@ -10,10 +10,11 @@ mutable struct CellAgent <: AbstractAgent
   cell::AbstractCell
 end
 CellAgent(cell::AbstractCell) = CellAgent(0, (0, 0), cell)
+CellAgent(id::Int, cell::AbstractCell) = CellAgent(id, (0, 0), cell)
 
 mutable struct Cell <: AbstractCell
   birth::Float64
-  divisonCount::Inf64
+  divisonCount::Int64
   modules::AbstractDict{AbstractString, CellModule}
   deathAccumulator::Union{DeathAccumulator, Nothing}
   differentiationAccumulator::Union{DifferentationAccumulator, Nothing}
@@ -32,12 +33,16 @@ end
 stimulate(cell::Cell, stimulus::Stimulus) = nothing
 addModule(cell::Cell, name::AbstractString, cellModule::CellModule) = cell.modules[name] = cellModule
 
-function step(agent::CellAgent, time::Float64, dt::Float64, model::AgentBasedModel)
+function step(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBasedModel)
   cell = agent.cell
 
   for cellModule in cell.modules
-    step(cellModule.second, time, dt)
+    step(cellModule.second, time, Δt)
   end
+
+  step(cell.deathAccumulator, time, Δt)
+  step(cell.differentiationAccumulator, time, Δt)
+  step(cell.divisionAccumulator, time, Δt)
 
   if shouldDie(cell.deathAccumulator, time)
     die(cell)
@@ -46,7 +51,7 @@ function step(agent::CellAgent, time::Float64, dt::Float64, model::AgentBasedMod
 
   if shouldDivide(cell.divisionAccumulator, time)
     new_cell = divide(cell, time)
-    new_agent = CellAgent(new_cell)
+    new_agent = CellAgent(length(model.agents)+1, new_cell)
     add_agent_single!(new_agent, model)
   end
 
@@ -57,6 +62,6 @@ end
 
 age(cell::Cell, time::Float64) = time - cell.birth
 
-die(cell::Cell) = nothing
-divide(cell::Cell, time::Float64) = error("Not implemented")
-differentiate(cell::Cell, time::Float64) = error("Not implemented")
+die(cell::AbstractCell) = nothing
+divide(cell::AbstractCell, time::Float64) = error("Not implemented")
+differentiate(cell::AbstractCell, time::Float64) = error("Not implemented")
