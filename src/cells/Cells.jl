@@ -17,7 +17,7 @@ mutable struct Cell <: AbstractCell
   divisonCount::Int64
   modules::AbstractDict{AbstractString, CellModule}
   deathAccumulator::Union{DeathAccumulator, Nothing}
-  differentiationAccumulator::Union{DifferentationAccumulator, Nothing}
+  differentiationAccumulator::Union{FateAccumulator, Nothing}
   divisionAccumulator::Union{DivisionAccumulator, Nothing}
   
   function Cell(birth::Float64)
@@ -52,10 +52,10 @@ function step(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBasedMo
   if shouldDivide(cell.divisionAccumulator, time)
     new_cell = divide(cell, time)
     new_agent = CellAgent(length(model.agents)+1, new_cell)
-    add_agent_single!(new_agent, model)
+    add_agent_pos!(new_agent, model)
   end
 
-  if shouldDifferentiate(cell.differentiationAccumulator, time)
+  if shouldChangeFate(cell.differentiationAccumulator, time)
     differentiate(cell, time)
   end
 end

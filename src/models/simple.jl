@@ -105,7 +105,7 @@ step(_::TimedDivision, time::Float64, Δt::Float64) = nothing
 "Create a new cell"
 function cellFactory(birth::Float64=0.0)
   cell = Cell(birth)
-  cell.differentiationAccumulator = ConstantDifferentiator(λ_firstDivision, PreFirstDivision)
+  cell.differentiationAccumulator = ConstantDifferentiator(λ_firstDivision, Undivided)
   cell.deathAccumulator = TimedDeath(λ_lifetime)
   cell.divisionAccumulator = nothing
   return cell
@@ -148,7 +148,7 @@ function differentiate(cell::Cell, time::Float64)
   end
 
 
-  if cellType == PreFirstDivision
+  if cellType == Undivided
     cell.divisionAccumulator = TimedDivision(λ_subsequentDivision, time)
     cell.differentiationAccumulator.cellType = Dividing
     cell.differentiationAccumulator.nextEvent = draw(λ_divisionDestiny)

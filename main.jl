@@ -1,34 +1,31 @@
 using Agents, InteractiveDynamics, StatsPlots, DataFrames
 plotlyjs()
 
-using Cyton: CellAgent, step
+using Cyton: CellAgent, step, VoidSpace
 
 # include("src/models/michelle.jl")
 include("src/models/simple.jl")
 
 model_time(model::AgentBasedModel) = model.properties[:step_cnt] * model.properties[:Δt]
 
-function init(; N=10)
-  space = GridSpace((N*100, N*100), periodic = false)
+function init(; N=100)
+  space = VoidSpace()
   scheduler = Schedulers.fastest
   properties = Dict(:step_cnt => 0, :Δt => 1.0)
   model = AgentBasedModel(CellAgent, space; properties, scheduler)
 
-  id = 1
-  for m in 1:N
-    for n in 1:N
-      cell = cellFactory()
-      agent = CellAgent(id, (m, n), cell)
-      add_agent_single!(agent, model)
-      id += 1
-    end
+  for id in 1:N
+    cell = cellFactory()
+    agent = CellAgent(id, cell)
+    add_agent_pos!(agent, model)
   end
 
   return model
 end
 
-print("Time to initialise:")
-@time model = init()
+# print("Time to initialise:")
+# @time 
+model = init()
 
 function stepper(agent::CellAgent, model::AgentBasedModel)
   Δt = model.properties[:Δt]

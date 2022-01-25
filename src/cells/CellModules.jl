@@ -2,7 +2,7 @@ abstract type CellModule end
 abstract type Accumulator <: CellModule end
 abstract type DeathAccumulator <: Accumulator end
 abstract type DivisionAccumulator <: Accumulator end
-abstract type DifferentationAccumulator <: Accumulator end
+abstract type FateAccumulator <: Accumulator end
 
 "Step the cell module forward by one time increment"
 step(cellModule::CellModule, time::Float64, dt::Float64) = error("Not implemented")
@@ -18,11 +18,11 @@ shouldDivide(divisionAccumulator::DivisionAccumulator, time::Float64) = error("N
 shouldDivide(_::Nothing, _::Float64) = false
 
 "Called every time step to determine of the cell should differentiate"
-shouldDifferentiate(differentationAccumulator::DifferentationAccumulator, time::Float64) = error("Not implemented")
-shouldDifferentiate(_::Nothing, _::Float64) = false
+shouldChangeFate(fateAccumulator::FateAccumulator, time::Float64) = error("Not implemented")
+shouldChangeFate(_::Nothing, _::Float64) = false
 
 "Provides a string to indicate the cell type"
-cellType(differentationAccumulator::DifferentationAccumulator) = "-- unknown --"
+cellType(differentationAccumulator::FateAccumulator) = "-- unknown --"
 
 "A simple exponential decay of protein level"
 mutable struct SimpleDecay <: Accumulator
