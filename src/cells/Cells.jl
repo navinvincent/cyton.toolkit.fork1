@@ -14,54 +14,61 @@ CellAgent(id::Int, cell::AbstractCell) = CellAgent(id, (0, 0), cell)
 
 mutable struct Cell <: AbstractCell
   birth::Float64
-  divisonCount::Int64
-  modules::AbstractDict{AbstractString, CellModule}
-  deathAccumulator::Union{DeathAccumulator, Nothing}
-  differentiationAccumulator::Union{FateAccumulator, Nothing}
-  divisionAccumulator::Union{DivisionAccumulator, Nothing}
+  generation::Int64
+  timers::Vector{FateTimer}
   
   function Cell(birth::Float64)
-    return new(birth, 0, Dict{AbstractString, CellModule}(), nothing, nothing, nothing)
+    return new(birth, 0, [])
   end
 
-  function Cell(cell::Cell)
-    return new(cell.birth, cell.divisonCount, Dict{AbstractString, CellModule}(), nothing, nothing, nothing)
+  function Cell(birth::Float64, divisionCount::Int64)
+    return new(birth, divisionCount, [])
   end
 
 end
 
-stimulate(cell::Cell, stimulus::Stimulus) = nothing
-addModule(cell::Cell, name::AbstractString, cellModule::CellModule) = cell.modules[name] = cellModule
+stimulate(_::Cell, _::Stimulus) = nothing
+addTimer(cell::Cell, timer::FateTimer) = push!(cell.timers, timer)
 
 function step(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBasedModel)
   cell = agent.cell
 
-  for cellModule in cell.modules
-    step(cellModule.second, time, Δt)
+  willDie = false
+  willDivide = false
+  for timer in cell.timers
+    step(timer, time, Δt)
+    willDie = willDie || shouldDie(timer, time) 
+    willDivide = willDivide || shouldDivide(timer, time) 
   end
 
-  step(cell.deathAccumulator, time, Δt)
-  step(cell.differentiationAccumulator, time, Δt)
-  step(cell.divisionAccumulator, time, Δt)
-
-  if shouldDie(cell.deathAccumulator, time)
+  if willDie
     die(cell)
     kill_agent!(agent, model)
   end
 
-  if shouldDivide(cell.divisionAccumulator, time)
+  if willDivide
     new_cell = divide(cell, time)
-    new_agent = CellAgent(length(model.agents)+1, new_cell)
+    new_agent = CellAgent(model.maxid[]+1, new_cell)
     add_agent_pos!(new_agent, model)
   end
 
-  if shouldChangeFate(cell.differentiationAccumulator, time)
-    differentiate(cell, time)
-  end
 end
 
 age(cell::Cell, time::Float64) = time - cell.birth
 
 die(cell::AbstractCell) = nothing
-divide(cell::AbstractCell, time::Float64) = error("Not implemented")
-differentiate(cell::AbstractCell, time::Float64) = error("Not implemented")
+
+"Create a daughter from the mother and reset the mother's state"
+function divide(cell::AbstractCell, time::Float64) 
+  cell.generation += 1
+  new_cell = Cell(time, cell.generation)
+
+  for i in 1:length(cell.timers)
+    timer = cell.timers[i]
+    cell.timers[i] = inherit(timer, time)
+    addTimer(new_cell, inherit(timer, time))
+  end
+
+  return new_cell
+end
+

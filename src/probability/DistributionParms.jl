@@ -2,6 +2,7 @@ abstract type DistributionParmSet end
 
 include("poisson.jl")
 include("log_normal.jl")
+include("fixed.jl")
 
 function plotPdf(distribution::DistributionParmSet, max::Float64=distribution.useful_max)
   t = collect(0:0.1:max)

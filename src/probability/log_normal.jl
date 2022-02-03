@@ -5,12 +5,9 @@ struct LogNormalParms <: DistributionParmSet
   σ::Float64
   "This provides a hint for setting plot axis limits"
   useful_max::Float64
-  function LogNormalParms(μ::Float64, σ::Float64)
-    return new(μ, σ, exp(μ + 3σ))
-  end
-  function LogNormalParms(μ::Float64, σ::Float64, useful_max::Float64)
-    return new(μ, σ, useful_max)
-  end
+end
+function LogNormalParms(μ::Float64, σ::Float64)
+  return LogNormalParms(μ, σ, exp(μ + 3σ))
 end
 
 function draw(distribution::LogNormalParms)

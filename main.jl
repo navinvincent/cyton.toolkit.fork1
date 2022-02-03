@@ -3,15 +3,26 @@ plotlyjs()
 
 using Cyton: CellAgent, step, VoidSpace
 
+function dashedLine(n::Int=20, c::Char='-')
+  s = ""
+  for _ in 1:n
+    s *= c
+  end
+  return s
+end
+d = dashedLine()
+
+println(d * " start " * d)
+
 # include("src/models/michelle.jl")
 include("src/models/simple.jl")
 
 model_time(model::AgentBasedModel) = model.properties[:step_cnt] * model.properties[:Δt]
 
-function init(; N=100)
+function init(; N=7477)
   space = VoidSpace()
   scheduler = Schedulers.fastest
-  properties = Dict(:step_cnt => 0, :Δt => 1.0)
+  properties = Dict(:step_cnt => 0, :Δt => 0.1)
   model = AgentBasedModel(CellAgent, space; properties, scheduler)
 
   for id in 1:N
@@ -23,8 +34,6 @@ function init(; N=100)
   return model
 end
 
-# print("Time to initialise:")
-# @time 
 model = init()
 
 function stepper(agent::CellAgent, model::AgentBasedModel)
@@ -39,43 +48,40 @@ end
 
 print("Time to run:")
 @time begin
-  counts = DataFrame(time=Int[], total=[], predivision=[], dividing=[], destiny=[], memory=[])
-  for time in 1:200
+  counts = DataFrame(time=Float64[], 
+  total=[], 
+  gen0 = [],
+  gen1 = [],
+  gen2 = [],
+  gen3 = [],
+  gen4 = [],
+  gen5 = [],
+  gen6 = [],
+  gen7 = [],
+  gen8 = [],
+  genOther = []
+  )
+  cellAgents = values(model.agents)
+  Δt = model.properties[:Δt]
+  for time in 1:Δt:150 
     step!(model, stepper, model_stepper)
 
-    cellAgents = values(model.agents)
     tm = model_time(model)
-    local memoryCnt = 0
-    local preDivisionCnt = 0
-    local dividingCnt = 0
-    local destinyCnt = 0
+    local genCnts = zeros(10)
     for c in cellAgents
-      ct = c.cell.differentiationAccumulator.cellType
-      if ct == Memory
-        memoryCnt += 1
-        continue
+      gen = c.cell.generation
+      if gen <= 8
+        genCnts[gen+1] += 1
+      else
+        genCnts[10] += 1
       end
-      if ct == Undivided
-        preDivisionCnt += 1
-        continue
-      end
-      if ct == Dividing
-        dividingCnt += 1
-        continue
-      end
-      if ct == Destiny
-        destinyCnt += 1
-        continue
-      end
-      error("Unkown cell type $(ct)")
     end
-    local totalCnt = preDivisionCnt + dividingCnt + destinyCnt + memoryCnt
-    push!(counts, (time, totalCnt, preDivisionCnt, dividingCnt, destinyCnt, memoryCnt))
+    push!(counts, (tm, length(cellAgents), genCnts...))
   end
 end
 
-
-h = @df counts plot(:time, [:total :predivision :dividing :destiny :memory])
+h = @df counts plot(:time, [:total :gen0 :gen1 :gen2 :gen3 :gen4 :gen5 :gen6 :gen7 :gen8 :genOther])
 display(h)
+
 println("Done at model time=$(model.properties[:step_cnt]*model.properties[:Δt])")
 
