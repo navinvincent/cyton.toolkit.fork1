@@ -13,11 +13,11 @@ shouldDivide(fateTimer::FateTimer, time::Float64) = false
 inherit(fateTImer::FateTimer, time::Float64) = error("inherit method not implemented")
 
 "A simple exponential decay of protein level"
-mutable struct SimpleDecay <: FateTimer
-  "Current amount of this protein"
+mutable struct PoissonTimer <: FateTimer
+  "Current amount of this stuff"
   amount::Float64
-  "Protein decay time constant"
+  "Decay time constant"
   λ::Float64
 end
 
-step(death::SimpleDecay, _::Float64, Δt::Float64) = death.amount = death.amount * exp(-Δt/death.λ)
+step(timer::PoissonTimer, _::Float64, Δt::Float64) = timer.amount = timer.amount * exp(-Δt/timer.λ)

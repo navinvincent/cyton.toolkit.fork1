@@ -1,4 +1,3 @@
-using Agents
 
 abstract type AbstractCell end
 abstract type Stimulus end
@@ -30,30 +29,6 @@ end
 stimulate(_::Cell, _::Stimulus) = nothing
 addTimer(cell::Cell, timer::FateTimer) = push!(cell.timers, timer)
 
-function step(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBasedModel)
-  cell = agent.cell
-
-  willDie = false
-  willDivide = false
-  for timer in cell.timers
-    step(timer, time, Δt)
-    willDie = willDie || shouldDie(timer, time) 
-    willDivide = willDivide || shouldDivide(timer, time) 
-  end
-
-  if willDie
-    die(cell)
-    kill_agent!(agent, model)
-  end
-
-  if willDivide
-    new_cell = divide(cell, time)
-    new_agent = CellAgent(model.maxid[]+1, new_cell)
-    add_agent_pos!(new_agent, model)
-  end
-
-end
-
 age(cell::Cell, time::Float64) = time - cell.birth
 
 die(cell::AbstractCell) = nothing
@@ -71,4 +46,3 @@ function divide(cell::AbstractCell, time::Float64)
 
   return new_cell
 end
-

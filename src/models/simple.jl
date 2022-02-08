@@ -79,3 +79,44 @@ shouldDie(death::DeathTimer, time::Float64) = time > death.timeToDeath
 
 "Indicate the cell will divide. Must be earlier than destiny and after the next division time"
 shouldDivide(division::DivisionTimer, time::Float64) = time < division.timeToDestiny && time > division.timeToDivision
+
+function run(model::AgentBasedModel, runDuration::Float64)
+  print("Time to run:")
+  @time begin
+    counts = DataFrame(time=Float64[], 
+    total=[], 
+    gen0 = [],
+    gen1 = [],
+    gen2 = [],
+    gen3 = [],
+    gen4 = [],
+    gen5 = [],
+    gen6 = [],
+    gen7 = [],
+    gen8 = [],
+    genOther = []
+    )
+    Δt = model.properties[:Δt]
+    for time in 1:Δt:runDuration
+      step!(model, stepper, model_stepper)
+
+      tm = model_time(model)
+      local genCnts = zeros(10)
+      cellAgents = values(model.agents)
+      for c in cellAgents
+        gen = c.cell.generation
+        if gen <= 8
+          genCnts[gen+1] += 1
+        else
+          genCnts[10] += 1
+        end
+      end
+      push!(counts, (tm, length(cellAgents), genCnts...))
+    end
+  end
+
+  h = @df counts plot(:time, [:total :gen0 :gen1 :gen2 :gen3 :gen4 :gen5 :gen6 :gen7 :gen8 :genOther])
+  display(h)
+
+  println("Done at model time=$(model.properties[:step_cnt]*model.properties[:Δt])")
+end
