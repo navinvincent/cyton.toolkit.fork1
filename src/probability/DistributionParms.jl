@@ -1,5 +1,12 @@
 abstract type DistributionParmSet end
 
+export DistributionParmSet, 
+  FixedDistributionParms, 
+  LogNormalParms, 
+  PoissonParms, 
+  draw,
+  plotPdf
+
 include("poisson.jl")
 include("log_normal.jl")
 include("fixed.jl")

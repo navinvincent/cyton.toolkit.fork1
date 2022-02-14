@@ -2,6 +2,8 @@
 abstract type AbstractCell end
 abstract type Stimulus end
 
+export FateTimer, addTimer, Cell, Stimulus, stimulate, age, die
+
 mutable struct CellAgent <: AbstractAgent
   "These are required by the ABM framework"
   id::Int
@@ -26,7 +28,7 @@ mutable struct Cell <: AbstractCell
 
 end
 
-stimulate(_::Cell, _::Stimulus) = nothing
+stimulate(_::Cell, _::Stimulus, time::Float64) = nothing
 addTimer(cell::Cell, timer::FateTimer) = push!(cell.timers, timer)
 
 age(cell::Cell, time::Float64) = time - cell.birth

@@ -8,11 +8,9 @@ struct LogNormalParms <: DistributionParmSet
 end
 function LogNormalParms(μ::Float64, σ::Float64; natural=false)
   if natural
-    f = 1+ (μ/σ)^2
+    f = 1+ (σ/μ)^2
     μ_L = log(μ/sqrt(f))
     σ_L = sqrt(log(f))
-    println(μ_L)
-    println(σ_L)
     return LogNormalParms(μ_L, σ_L, exp(μ_L + 3σ_L))
   else
     return LogNormalParms(μ, σ, exp(μ + 3σ))

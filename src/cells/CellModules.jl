@@ -1,5 +1,7 @@
 abstract type FateTimer end
 
+export step, shouldDie, shouldDivide, inherit
+
 "Step the cell module forward by one time increment"
 step(_::FateTimer, time::Float64, Δt::Float64) = error("step method not implemented")
 

@@ -2,6 +2,8 @@ module Cyton
 
 using Agents
 
+export model_time, step, createModel
+
 include("probability/DistributionParms.jl")
 include("cells/CellModules.jl")
 include("cells/Cells.jl")
@@ -10,7 +12,7 @@ include("utils/void_space.jl")
 
 model_time(model::AgentBasedModel) = model.properties[:step_cnt] * model.properties[:Δt]
 
-function createModel(Ncells::Int, cellFactory)
+function createModel(Ncells::Int, cellFactory::Function)
   space = VoidSpace()
   scheduler = Schedulers.fastest
   properties = Dict(:step_cnt => 0, :Δt => 0.1)
@@ -25,17 +27,18 @@ function createModel(Ncells::Int, cellFactory)
   return model
 end
 
-step(model::AgentBasedModel) = step!(model, cellStepper, modelStepper)
+step(model::AgentBasedModel, stimuli::Array{T, 1}=[]) where T<:Stimulus = step!(model, (a, m) -> cellStepper(a, m, stimuli), modelStepper)
 
-function cellStepper(agent::CellAgent, model::AgentBasedModel)
+function cellStepper(agent::CellAgent, model::AgentBasedModel, stimuli::Array{T, 1}) where T<:Stimulus
   Δt = model.properties[:Δt]
   time = model_time(model)
-  doStep(agent, time, Δt, model)
+  doStep(agent, time, Δt, model, stimuli)
 end
+
 
 modelStepper(model::AgentBasedModel) = model.properties[:step_cnt] += 1
 
-function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBasedModel)
+function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBasedModel, stimuli::Array{T, 1}) where T<:Stimulus
   cell = agent.cell
 
   willDie = false
@@ -51,6 +54,10 @@ function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBased
     kill_agent!(agent, model)
   end
 
+  for stimulus in stimuli
+    stimulate(cell, stimulus, time)
+  end
+
   if willDivide
     new_cell = divide(cell, time)
     if new_cell ≠ nothing
@@ -58,7 +65,6 @@ function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::AgentBased
       add_agent_pos!(new_agent, model)
     end
   end
-
 end
 
 end
