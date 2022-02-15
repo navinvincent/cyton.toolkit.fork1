@@ -7,17 +7,10 @@ PROCEEDINGS OF THE NATIONAL ACADEMY OF SCIENCES 2014
 https://dx.doi.org/10.1073/pnas.1322420111
 """
 
-using Agents, InteractiveDynamics, StatsPlots, DataFrames
-plotlyjs()
-
-function dashedLine(n::Int=20, c::Char='-')
-  s = ""
-  for _ in 1:n
-    s *= c
-  end
-  return s
-end
-d = dashedLine()
+using Agents
+import Gadfly
+# plotlyjs()
+import Base: step # work around bug in adding additional methods with this name
 
 using Cyton
 
@@ -27,8 +20,11 @@ using Cyton
 kG1 = 0.27
 kS  = 0.57
 # BRDU labelled and unlabelled floursence level
-brduLo = LogNormalParms(log(1000), log(2))
-brduHi = LogNormalParms(log(5000), log(2))
+brduLo = LogNormalParms(log(250), log(2))
+brduHi = LogNormalParms(log(7000), log(2))
+# 7AAD DNA 2x and 4x labelling
+dnaLo = NormalParms(75000, 5000)
+dnaHi = NormalParms(150000, 10000)
 
 mutable struct CycleTimer <: FateTimer
   divTime::Float64
@@ -39,13 +35,23 @@ mutable struct CycleTimer <: FateTimer
 end
 
 "Constructor for new cells at t=0"
-CycleTimer(λ::DistributionParmSet, kG1::Float64) = CycleTimer(draw(λ), kG1, kS, 0, draw(brduLo))
+function CycleTimer(λ::DistributionParmSet, kG1::Float64)
+  # Timers are desynchronised by distributing them randomly 
+  # over their cycle.
+  l = draw(λ)
+  s = - l * rand()
+  CycleTimer(l, kG1, kS, s, draw(brduLo))
+end
 
 function phase(cycle::CycleTimer, time::Float64)
-  if time <= cycle.divTime * cycle.kG1 + cycle.startTime
+  δt = time - cycle.startTime
+  divTime = cycle.divTime
+  kG1 = cycle.kG1 * divTime
+  kS = cycle.kS * divTime
+  if δt <= kG1
     return G1
   end
-  if time <= cycle.divTime * cycle.kS + cycle.startTime
+  if δt <= kG1 + kS
     return S
   end
   return G2M
@@ -68,10 +74,10 @@ function stretchedCellFactory(birth::Float64=0.0)
   return cell
 end
 
-function runModel!(model::AgentBasedModel, runDuration::Float64, stimulus::Stimulus, callback::Function=(m) -> nothing)
+function runModel!(model::AgentBasedModel, runDuration::Float64, stimulus::Stimulus, callback::Function=(_) -> nothing)
   Δt = model.properties[:Δt]
   for _ in 0:Δt:runDuration
-    step(model, [stimulus])
+    step(model, stimulus)
     callback(model)
   end
 end
@@ -119,10 +125,49 @@ function survivalCurves(model::AgentBasedModel)
   println("Done at model time: $(model.properties[:step_cnt]*model.properties[:Δt])")
 end
 
-function brduLevels(model::AgentBasedModel)
-  brdus = [c.cell.timers[1].brdu for c in values(model.agents)]
-  h = histogram(x=brdus, yscale=:log)
-  display(h)
+function timeInS(cycle::CycleTimer, time::Float64)
+  δt = time - cycle.startTime
+  divTime = cycle.divTime
+  kG1 = cycle.kG1 * divTime
+  kS = cycle.kS * divTime
+  if δt <= kG1
+    error("Cell is not in S")
+  end
+  if δt <= kG1 + kS
+    return (δt-kG1)/kS
+  end
+  error("Cell is not in S")
+end
+
+function dnaStainLevels(model::AgentBasedModel)
+  time = model_time(model)
+  NCells = length(model.agents)
+  brdus = zeros(NCells)
+  dnas = zeros(NCells)
+  for (i, a) in enumerate(values(model.agents))
+    c = a.cell
+    fate = c.timers[1]
+    brdus[i] = fate.brdu
+    p = phase(fate, time)
+    
+    l = draw(dnaLo)
+    if p == G1
+      dnas[i] = l
+      continue
+    end
+
+    h = draw(dnaHi)
+    if p == S
+      t = timeInS(fate, time)
+      dnas[i] = l + (h-l)*t
+      continue
+    end
+    
+    if p == G2M
+      dnas[i] = h
+    end
+  end
+  return (dnas, brdus)
 end
 
 struct BrduStimulus <: Stimulus
@@ -130,20 +175,31 @@ struct BrduStimulus <: Stimulus
   pulseEnd::Float64
 end
 
-function stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
+function Cyton.stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
   cycle = cell.timers[1]
-  if stim.pulseStart <= time <= stim.pulseEnd && phase(cycle, time) == S
+  if (stim.pulseStart ≤ time ≤ stim.pulseEnd) && (phase(cycle, time) == S)
     cycle.brdu = draw(brduHi)
   end
 end
-stim = BrduStimulus(500.0, 550.0)
+stim = BrduStimulus(0, 0.5)
 
-println(d * " start " * d)
-model = createModel(10000, stretchedCellFactory)
-model.properties[:Δt] = 0.1
+println("-------------------- start --------------------")
+model = createModel(20000, stretchedCellFactory)
+model.properties[:Δt] = 0.01
 
-rt = @timed runModel!(model, 650.0, stim)
+rt = @timed runModel!(model, 1.0, stim)
 println("Elaspsed time: $(rt[2])")
 
-# brduLevels(model)
-survivalCurves(model)
+(dnas, brdus) = dnaStainLevels(model);;;;;;;;;
+# survivalCurves(model)
+
+plot(x=dnas, 
+y=brdus, 
+Geom.histogram2d, 
+Guide.xlabel("DNA"), 
+Guide.ylabel("BRDU"), 
+Coord.cartesian(xmin=0, xmax=200000, ymin=1, ymax=5), 
+Scale.y_log10, 
+Theme(background_color="white"))
+
+# p |> PNG("sin_pi.png", 6inch, 4inch)

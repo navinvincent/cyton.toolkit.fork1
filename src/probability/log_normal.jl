@@ -1,12 +1,12 @@
 using  Plots, Distributions
 
 struct LogNormalParms <: DistributionParmSet
-  μ::Float64
-  σ::Float64
+  μ::Real
+  σ::Real
   "This provides a hint for setting plot axis limits"
-  useful_max::Float64
+  useful_max::Real
 end
-function LogNormalParms(μ::Float64, σ::Float64; natural=false)
+function LogNormalParms(μ::Real, σ::Real; natural=false)
   if natural
     f = 1+ (σ/μ)^2
     μ_L = log(μ/sqrt(f))

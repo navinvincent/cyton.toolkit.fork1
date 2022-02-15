@@ -2,6 +2,7 @@ module Cyton
 
 using Agents
 
+import Base: step # work around bug in adding additional methods with this name
 export model_time, step, createModel
 
 include("probability/DistributionParms.jl")
@@ -27,9 +28,10 @@ function createModel(Ncells::Int, cellFactory::Function)
   return model
 end
 
-step(model::AgentBasedModel, stimuli::Array{T, 1}=[]) where T<:Stimulus = step!(model, (a, m) -> cellStepper(a, m, stimuli), modelStepper)
+step(model::AgentBasedModel, stimulus::T) where T<:Stimulus = step(model, [stimulus])
+step(model::AgentBasedModel, stimuli::Vector{T}=[]) where T<:Stimulus = step!(model, (a, m) -> cellStepper(a, m, stimuli), modelStepper)
 
-function cellStepper(agent::CellAgent, model::AgentBasedModel, stimuli::Array{T, 1}) where T<:Stimulus
+function cellStepper(agent::CellAgent, model::AgentBasedModel, stimuli::Vector{T}) where T<:Stimulus
   Δt = model.properties[:Δt]
   time = model_time(model)
   doStep(agent, time, Δt, model, stimuli)
