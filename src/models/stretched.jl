@@ -8,8 +8,10 @@ https://dx.doi.org/10.1073/pnas.1322420111
 """
 
 using Agents
-import Gadfly
-# plotlyjs()
+
+using Gadfly
+set_default_plot_size(20cm, 16cm)
+
 import Base: step # work around bug in adding additional methods with this name
 
 using Cyton
@@ -20,8 +22,8 @@ using Cyton
 kG1 = 0.27
 kS  = 0.57
 # BRDU labelled and unlabelled floursence level
-brduLo = LogNormalParms(log(250), log(2))
-brduHi = LogNormalParms(log(7000), log(2))
+brduLo = LogNormalParms(log(180), log(1.8))
+brduHi = LogNormalParms(log(8000), log(1.8))
 # 7AAD DNA 2x and 4x labelling
 dnaLo = NormalParms(75000, 5000)
 dnaHi = NormalParms(150000, 10000)
@@ -32,15 +34,16 @@ mutable struct CycleTimer <: FateTimer
   kS::Float64
   startTime::Float64
   brdu::Float64
+  brduPos::Bool
 end
 
 "Constructor for new cells at t=0"
 function CycleTimer(λ::DistributionParmSet, kG1::Float64)
   # Timers are desynchronised by distributing them randomly 
   # over their cycle.
-  l = draw(λ)
+  l = Cyton.draw(λ)
   s = - l * rand()
-  CycleTimer(l, kG1, kS, s, draw(brduLo))
+  CycleTimer(l, kG1, kS, s, Cyton.draw(brduLo), false)
 end
 
 function phase(cycle::CycleTimer, time::Float64)
@@ -144,19 +147,20 @@ function dnaStainLevels(model::AgentBasedModel)
   NCells = length(model.agents)
   brdus = zeros(NCells)
   dnas = zeros(NCells)
+  negDnaCnt = 0
   for (i, a) in enumerate(values(model.agents))
     c = a.cell
     fate = c.timers[1]
     brdus[i] = fate.brdu
     p = phase(fate, time)
     
-    l = draw(dnaLo)
+    l = Cyton.draw(dnaLo)
     if p == G1
       dnas[i] = l
       continue
     end
 
-    h = draw(dnaHi)
+    h = Cyton.draw(dnaHi)
     if p == S
       t = timeInS(fate, time)
       dnas[i] = l + (h-l)*t
@@ -165,41 +169,77 @@ function dnaStainLevels(model::AgentBasedModel)
     
     if p == G2M
       dnas[i] = h
+      if !fate.brduPos
+        negDnaCnt += 1
+      end
     end
   end
-  return (dnas, brdus)
+  return (dnas, brdus, negDnaCnt)
 end
 
 struct BrduStimulus <: Stimulus
-  pulseStart::Float64
-  pulseEnd::Float64
+  pulseStart::Real
+  pulseEnd::Real
 end
 
 function Cyton.stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
   cycle = cell.timers[1]
   if (stim.pulseStart ≤ time ≤ stim.pulseEnd) && (phase(cycle, time) == S)
-    cycle.brdu = draw(brduHi)
+    cycle.brdu = Cyton.draw(brduHi)
+    cycle.brduPos = true
   end
 end
-stim = BrduStimulus(0, 0.5)
 
-println("-------------------- start --------------------")
-model = createModel(20000, stretchedCellFactory)
-model.properties[:Δt] = 0.01
+struct RunResult
+  plot::Plot
+  dnas::Vector{Real}
+  brdus::Vector{Real}
+  stimDur::Real
+  runDur::Real
+  model::AgentBasedModel
+  negDnaCnt::Int
+end
 
-rt = @timed runModel!(model, 1.0, stim)
-println("Elaspsed time: $(rt[2])")
+stimDur = 2 # hours
+stim = BrduStimulus(1, 1+stimDur)
 
-(dnas, brdus) = dnaStainLevels(model);;;;;;;;;
-# survivalCurves(model)
+forReal = true
+results = []
+if forReal
+  println("-------------------- start --------------------")
+  stimDurs = [0.12, 0.25, 0.5, 1, 2, 4]
+  for stimDur in stimDurs
+    local model, rt, dnas, result, p, brdus, negDnaCnt
+    model = createModel(20000, stretchedCellFactory)
+    model.properties[:Δt] = 0.01
+  
+    rt = @timed runModel!(model, 1+stimDur+0.5, stim)
+    println("Elaspsed time: $(rt[2])")
+  
+    (dnas, brdus, negDnaCnt) = dnaStainLevels(model);
 
-plot(x=dnas, 
-y=brdus, 
-Geom.histogram2d, 
-Guide.xlabel("DNA"), 
-Guide.ylabel("BRDU"), 
-Coord.cartesian(xmin=0, xmax=200000, ymin=1, ymax=5), 
-Scale.y_log10, 
+    p = plot(x=dnas, 
+    y=brdus, 
+    Geom.histogram2d, 
+    Guide.xlabel("DNA"), 
+    Guide.ylabel("BrdU"), 
+    Coord.cartesian(xmin=50000, xmax=200000, ymin=1, ymax=5), 
+    Scale.y_log10, 
+    Guide.title("pulse=$(Int(round(stimDur*60)))mins"),
+    Theme(background_color="white"))
+
+    result = RunResult(p, dnas, brdus, stimDur, rt[2], model, negDnaCnt)
+    push!(results, result)
+  end  
+end
+
+tm = [r.stimDur*60 for r in results]
+negCnts = [r.negDnaCnt/length(r.model.agents)*100 for r in results]
+plot(x=tm, 
+y=negCnts,
+Guide.xlabel("Time (mins)"), 
+Guide.ylabel("%BrdU(-ve) DNA(x2)"), 
+Coord.cartesian(xmin=0, xmax=250, ymin=0, ymax=12), 
 Theme(background_color="white"))
 
 # p |> PNG("sin_pi.png", 6inch, 4inch)
