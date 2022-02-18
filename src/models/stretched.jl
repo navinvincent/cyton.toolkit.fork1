@@ -7,10 +7,10 @@ PROCEEDINGS OF THE NATIONAL ACADEMY OF SCIENCES 2014
 https://dx.doi.org/10.1073/pnas.1322420111
 """
 
-using Agents
+using Agents, Cairo
 
 using Gadfly
-set_default_plot_size(20cm, 16cm)
+set_default_plot_size(20cm, 20cm)
 
 import Base: step # work around bug in adding additional methods with this name
 
@@ -28,43 +28,64 @@ brduHi = LogNormalParms(log(8000), log(1.8))
 dnaLo = NormalParms(75000, 5000)
 dnaHi = NormalParms(150000, 10000)
 
+mutable struct BrduStatus
+  lo::Float64
+  hi::Float64
+  current::Float64
+  positive::Bool
+end
+function BrduStatus(brduLo::DistributionParmSet, brduHi::DistributionParmSet)
+  l = Cyton.draw(brduLo)
+  h = Cyton.draw(brduHi)
+  BrduStatus(l, h, l, false)
+end
+
 mutable struct CycleTimer <: FateTimer
   divTime::Float64
   kG1::Float64
   kS::Float64
   startTime::Float64
-  brdu::Float64
-  brduPos::Bool
+  brdu::BrduStatus
 end
 
 "Constructor for new cells at t=0"
-function CycleTimer(λ::DistributionParmSet, kG1::Float64)
+function CycleTimer(λ::DistributionParmSet, 
+  kG1::Float64, 
+  kS::Float64,
+  brduLo::DistributionParmSet, 
+  brduHi::DistributionParmSet)
+  
   # Timers are desynchronised by distributing them randomly 
   # over their cycle.
   l = Cyton.draw(λ)
   s = - l * rand()
-  CycleTimer(l, kG1, kS, s, Cyton.draw(brduLo), false)
+  
+  CycleTimer(l, kG1, kS, s, BrduStatus(brduLo, brduHi))
 end
 
 function phase(cycle::CycleTimer, time::Float64)
+  "Returns the phase of the cycle and the proportion of time spent in that phase"
   δt = time - cycle.startTime
   divTime = cycle.divTime
+  
   kG1 = cycle.kG1 * divTime
   kS = cycle.kS * divTime
   if δt <= kG1
-    return G1
+    return (G1, δt/kG1)
   end
   if δt <= kG1 + kS
-    return S
+    return (S, (δt-kG1)/kS)
   end
-  return G2M
+  return (G2M, (δt-kG1-kS)/(kG1+kS))
 end
 
 "The step function for the cycle timer"
 function step(cycle::CycleTimer, time::Float64, Δt::Float64)
   if time >= cycle.divTime + cycle.startTime
-    # Cell has (fake) divided, reset the timer.
+    # Cell has (fake) divided, reset the timer and BrdU level.
     cycle.startTime = time
+    # cycle.brdu.current = cycle.brdu.lo
+    # cycle.brdu.postive = false
   end
 end
 
@@ -73,7 +94,7 @@ remaining(cell::Cell, time::Float64) = remaining(cell.timers[1], time)
 
 function stretchedCellFactory(birth::Float64=0.0)
   cell = Cell(birth)
-  addTimer(cell, CycleTimer(λ, kG1))
+  addTimer(cell, CycleTimer(λ, kG1, kS, brduLo, brduHi))
   return cell
 end
 
@@ -128,20 +149,6 @@ function survivalCurves(model::AgentBasedModel)
   println("Done at model time: $(model.properties[:step_cnt]*model.properties[:Δt])")
 end
 
-function timeInS(cycle::CycleTimer, time::Float64)
-  δt = time - cycle.startTime
-  divTime = cycle.divTime
-  kG1 = cycle.kG1 * divTime
-  kS = cycle.kS * divTime
-  if δt <= kG1
-    error("Cell is not in S")
-  end
-  if δt <= kG1 + kS
-    return (δt-kG1)/kS
-  end
-  error("Cell is not in S")
-end
-
 function dnaStainLevels(model::AgentBasedModel)
   time = model_time(model)
   NCells = length(model.agents)
@@ -151,8 +158,8 @@ function dnaStainLevels(model::AgentBasedModel)
   for (i, a) in enumerate(values(model.agents))
     c = a.cell
     fate = c.timers[1]
-    brdus[i] = fate.brdu
-    p = phase(fate, time)
+    brdus[i] = fate.brdu.current
+    (p, timeInPhase) = phase(fate, time)
     
     l = Cyton.draw(dnaLo)
     if p == G1
@@ -162,14 +169,14 @@ function dnaStainLevels(model::AgentBasedModel)
 
     h = Cyton.draw(dnaHi)
     if p == S
-      t = timeInS(fate, time)
+      t = timeInPhase
       dnas[i] = l + (h-l)*t
       continue
     end
     
     if p == G2M
       dnas[i] = h
-      if !fate.brduPos
+      if !fate.brdu.positive
         negDnaCnt += 1
       end
     end
@@ -183,11 +190,24 @@ struct BrduStimulus <: Stimulus
 end
 
 function Cyton.stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
-  cycle = cell.timers[1]
-  if (stim.pulseStart ≤ time ≤ stim.pulseEnd) && (phase(cycle, time) == S)
-    cycle.brdu = Cyton.draw(brduHi)
-    cycle.brduPos = true
+
+  pulseStart = stim.pulseStart
+  pulseEnd   = stim.pulseEnd
+  inPulse = pulseStart ≤ time ≤ pulseEnd
+  if !inPulse
+    return
   end
+
+  cycle = cell.timers[1]
+  (p, timeInS) = phase(cycle, time)
+  if p ≠ S
+    return
+  end
+
+  brdu = cycle.brdu
+  brdu.positive = true
+  brdu.current = brdu.lo + timeInS * (brdu.hi - brdu.lo)
+
 end
 
 struct RunResult
@@ -200,24 +220,24 @@ struct RunResult
   negDnaCnt::Int
 end
 
-stimDur = 2 # hours
-stim = BrduStimulus(1, 1+stimDur)
 
 forReal = true
 results = []
 if forReal
   println("-------------------- start --------------------")
-  stimDurs = [0.12, 0.25, 0.5, 1, 2, 4]
+  stimDurs = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0]
   for stimDur in stimDurs
     local model, rt, dnas, result, p, brdus, negDnaCnt
     model = createModel(20000, stretchedCellFactory)
     model.properties[:Δt] = 0.01
   
-    rt = @timed runModel!(model, 1+stimDur+0.5, stim)
+    stim = BrduStimulus(0.5, 0.5+stimDur)
+    rt = @timed runModel!(model, 1.0+stimDur, stim)
     println("Elaspsed time: $(rt[2])")
   
     (dnas, brdus, negDnaCnt) = dnaStainLevels(model);
 
+    title = "pulse=$(Int(round(stimDur*60)))mins"
     p = plot(x=dnas, 
     y=brdus, 
     Geom.histogram2d, 
@@ -225,8 +245,10 @@ if forReal
     Guide.ylabel("BrdU"), 
     Coord.cartesian(xmin=50000, xmax=200000, ymin=1, ymax=5), 
     Scale.y_log10, 
-    Guide.title("pulse=$(Int(round(stimDur*60)))mins"),
-    Theme(background_color="white"))
+    Guide.title(title),
+    Theme(background_color="white", key_position=:none))
+    display(p)
+    p |> PNG("/Users/thomas.e/Desktop/$(title).png", 6inch, 6inch)
 
     result = RunResult(p, dnas, brdus, stimDur, rt[2], model, negDnaCnt)
     push!(results, result)
@@ -235,11 +257,11 @@ end
 
 tm = [r.stimDur*60 for r in results]
 negCnts = [r.negDnaCnt/length(r.model.agents)*100 for r in results]
-plot(x=tm, 
+p = plot(x=tm, 
 y=negCnts,
 Guide.xlabel("Time (mins)"), 
 Guide.ylabel("%BrdU(-ve) DNA(x2)"), 
 Coord.cartesian(xmin=0, xmax=250, ymin=0, ymax=12), 
 Theme(background_color="white"))
-
-# p |> PNG("sin_pi.png", 6inch, 4inch)
+display(p)
+p |> PNG("/Users/thomas.e/Desktop/survival.png", 6inch, 6inch)
