@@ -7,10 +7,11 @@ PROCEEDINGS OF THE NATIONAL ACADEMY OF SCIENCES 2014
 https://dx.doi.org/10.1073/pnas.1322420111
 """
 
-using Agents, Cairo
+using Agents, Cairo, Gadfly
 
-using Gadfly
+# Gadfly defaults
 set_default_plot_size(20cm, 20cm)
+Gadfly.push_theme(Theme(background_color="white"))
 
 import Base: step # work around bug in adding additional methods with this name
 
@@ -85,7 +86,7 @@ function step(cycle::CycleTimer, time::Float64, Δt::Float64)
     # Cell has (fake) divided, reset the timer and BrdU level.
     cycle.startTime = time
     # cycle.brdu.current = cycle.brdu.lo
-    # cycle.brdu.postive = false
+    # cycle.brdu.positive = false
   end
 end
 
@@ -211,7 +212,7 @@ function Cyton.stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
 end
 
 struct RunResult
-  plot::Plot
+  plot::Union{Plot, Nothing}
   dnas::Vector{Real}
   brdus::Vector{Real}
   stimDur::Real
@@ -220,12 +221,11 @@ struct RunResult
   negDnaCnt::Int
 end
 
-
 forReal = true
 results = []
 if forReal
   println("-------------------- start --------------------")
-  stimDurs = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0]
+  stimDurs = [0.125]#, 0.25, 0.5, 1.0, 2.0, 4.0]
   for stimDur in stimDurs
     local model, rt, dnas, result, p, brdus, negDnaCnt
     model = createModel(20000, stretchedCellFactory)
@@ -238,30 +238,55 @@ if forReal
     (dnas, brdus, negDnaCnt) = dnaStainLevels(model);
 
     title = "pulse=$(Int(round(stimDur*60)))mins"
-    p = plot(x=dnas, 
-    y=brdus, 
-    Geom.histogram2d, 
-    Guide.xlabel("DNA"), 
-    Guide.ylabel("BrdU"), 
-    Coord.cartesian(xmin=50000, xmax=200000, ymin=1, ymax=5), 
-    Scale.y_log10, 
-    Guide.title(title),
-    Theme(background_color="white", key_position=:none))
-    display(p)
-    p |> PNG("/Users/thomas.e/Desktop/$(title).png", 6inch, 6inch)
-
+    # p = plot(x=dnas, 
+    # y=brdus, 
+    # Geom.histogram2d, 
+    # Guide.xlabel("DNA"), 
+    # Guide.ylabel("BrdU"), 
+    # Coord.cartesian(xmin=50000, xmax=200000, ymin=1, ymax=5), 
+    # Scale.y_log10, 
+    # Guide.title(title),
+    # Theme(background_color="white", key_position=:none))
+    # display(p)
+    # p |> PNG("/Users/thomas.e/Desktop/$(title).png", 6inch, 6inch)
+    p = nothing
     result = RunResult(p, dnas, brdus, stimDur, rt[2], model, negDnaCnt)
     push!(results, result)
   end  
 end
 
-tm = [r.stimDur*60 for r in results]
-negCnts = [r.negDnaCnt/length(r.model.agents)*100 for r in results]
-p = plot(x=tm, 
-y=negCnts,
-Guide.xlabel("Time (mins)"), 
-Guide.ylabel("%BrdU(-ve) DNA(x2)"), 
-Coord.cartesian(xmin=0, xmax=250, ymin=0, ymax=12), 
-Theme(background_color="white"))
-display(p)
-p |> PNG("/Users/thomas.e/Desktop/survival.png", 6inch, 6inch)
+include("../../../MichelleData/julia/src/WriteFCS.jl")
+
+for (i, result) in enumerate(results)
+  dnas = results[i].dnas
+  brdus = results[i].brdus
+  params = Dict(
+    "\$TOT" => string(length(dnas)),
+    "\$P1N" => "DNA",
+    "\$P2N" => "BrdU",
+    "\$PAR" => "2",
+    "\$P1E" => "0,0",
+    "\$P2E" => "0,0",
+    "\$P1B" => string(sizeof(Float32)*8),
+    "\$P2B" => string(sizeof(Float32)*8),
+    "\$P1R" => "262144", #string(maximum(dnas)),
+    "\$P2R" => "262144", #string(maximum(brdus)),
+  )
+  data = Dict(
+    "BrdU" => convert(Vector{Float32}, brdus),
+    "DNA" => convert(Vector{Float32}, dnas),
+  )
+  fcs = FlowSample{Float32}(data, params)
+  writeFcs("/Users/thomas.e/Desktop/$(i).fcs", fcs)
+end
+
+# tm = [r.stimDur*60 for r in results]
+# negCnts = [r.negDnaCnt/length(r.model.agents)*100 for r in results]
+# p = plot(x=tm, 
+# y=negCnts,
+# Guide.xlabel("Time (mins)"), 
+# Guide.ylabel("%BrdU(-ve) DNA(x2)"), 
+# Coord.cartesian(xmin=0, xmax=250, ymin=0, ymax=12), 
+# Theme(background_color="white"))
+# display(p)
+# p |> PNG("/Users/thomas.e/Desktop/survival.png", 6inch, 6inch)
