@@ -1,4 +1,5 @@
-using  Plots, Distributions
+using  Plots
+import Distributions as dst
 
 struct NormalParms <: DistributionParmSet
   μ::Real
@@ -10,15 +11,15 @@ NormalParms(μ::Real, σ::Real) = NormalParms(μ, σ, μ + 3σ)
 
 
 function draw(distribution::NormalParms)
-  return rand(Normal(distribution.μ, distribution.σ))
+  return dst.rand(dst.Normal(distribution.μ, distribution.σ))
 end
 
 function draw(distribution::NormalParms, n::Int64)
-  return rand(Normal(distribution.μ, distribution.σ), n)
+  return dst.rand(dst.Normal(distribution.μ, distribution.σ), n)
 end
 
 function pdf(distribution::NormalParms, t::Float64)
-  return Distributions.pdf(Normal(distribution.μ, distribution.σ), t)
+  return dst.pdf(dst.Normal(distribution.μ, distribution.σ), t)
 end
 
 function describe(distribution::NormalParms)

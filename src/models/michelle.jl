@@ -1,26 +1,14 @@
-import Cyton: 
-  LogNormalParms,
-  DeathAccumulator,
-  CellModule,
-  DifferentationAccumulator,
-  DivisionAccumulator,
-  DeathAccumulator,
-  SimpleDecay,
-  shouldDie,
-  shouldDifferentiate,
-  shouldDivide,
-  Cell,
-  draw,
-  addModule
+import Cyton
 
 proteins = ["BCL2", "BCLxL", "MCL1", "BIM"]
+
 
 "A protein half life of around 24 hours"
 d_λ = LogNormalParms(3.2, 0.4)
 "An amount close to 1"
 d_amount = LogNormalParms(0.3, 0.4)
 
-struct ThresholdDeath <: DeathAccumulator
+struct ThresholdDeath <: FateTimer
   "The threshold below which the cell will die"
   threshold::Float64
   "The protein level weights"
@@ -30,13 +18,13 @@ struct ThresholdDeath <: DeathAccumulator
 
   function ThresholdDeath(proteinLevels::Dict{AbstractString, CellModule}) 
     return new(10.0,
-    Dict{AbstractString, Float64}([
-      "BCL2"=>5,
-      "BCLxL"=>5,
-      "MCL1"=>5,
-      "BIM"=>-5,
-    ]),
-    proteinLevels
+      Dict{AbstractString, Float64}([
+        "BCL2"  =>  5,
+        "BCLxL" =>  5,
+        "MCL1"  =>  5,
+        "BIM"   => -5,
+      ]),
+      proteinLevels
     )
   end
 end
@@ -58,7 +46,7 @@ There are 3 differentention states
 * Dividing
 * Division destiny
 """
-struct PreDivisionAccumulator <: DifferentationAccumulator
+struct PreDivisionAccumulator <: FateTimer
   start_diving::Float64
 end
 cellType(differentationAccumulator::PreDivisionAccumulator) = "preparing to divide"
@@ -76,21 +64,19 @@ There are 2 division states
 * Before first division and after division destiny. Cells don't divide in this state
 * The period when cells divide
 """
-struct NonDividingDivisionAccumulator <: DivisionAccumulator end
+struct NonDividingDivisionAccumulator <: FateTimer end
 shouldDivide(divisionAccucumulator::NonDividingDivisionAccumulator, time::Float64) = false
 
-struct SimpleDivisionAccumulator <: DivisionAccumulator
+struct SimpleDivisionAccumulator <: FateTimer
   next_division::Float64
 end
 shouldDivide(divisionAccucumulator::SimpleDivisionAccumulator, time::Float64) = time >= divisionAccucumulator.next_division
 
 function cellFactory(birth::Float64=0.0) 
   michelleCell = Cell(birth)
-  michelleCell.divisionAccumulator = nothing
-  michelleCell.differentiationAccumulator = nothing
 
   for p in proteins
-    addModule(michelleCell, p, SimpleDecay(draw(d_amount), draw(d_λ)))
+    addTimer(michelleCell, p, SimpleDecay(draw(d_amount), draw(d_λ)))
   end
 
   michelleCell.deathAccumulator = ThresholdDeath(michelleCell.modules)

@@ -1,7 +1,6 @@
-using  Plots, Distributions
 
 struct FixedDistributionParms <: DistributionParmSet
-  x::Real
+  val::Real
   "This provides a hint for setting plot axis limits"
   useful_max::Real
   function FixedDistributionParms(x::Real)
@@ -10,15 +9,15 @@ struct FixedDistributionParms <: DistributionParmSet
 end
 
 function draw(distribution::FixedDistributionParms)
-  return distribution.x
+  return distribution.val
 end
 
-function describe(distribution::LogNormalParms)
-  return "fixed at $(distribution.x)"
+function describe(distribution::FixedDistributionParms)
+  return "fixed at $(distribution.val)"
 end
 
 function pdf(d::FixedDistributionParms, t::Real)
-  if t == d.x
+  if t == d.val
     return Inf
   else
     return 0.0

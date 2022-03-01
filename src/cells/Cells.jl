@@ -17,15 +17,14 @@ mutable struct Cell <: AbstractCell
   birth::Float64
   generation::Int64
   timers::Vector{FateTimer}
+end
   
-  function Cell(birth::Float64)
-    return new(birth, 0, [])
-  end
+function Cell(birth::Float64)
+  return Cell(birth, 0, [])
+end
 
-  function Cell(birth::Float64, divisionCount::Int64)
-    return new(birth, divisionCount, [])
-  end
-
+function Cell(birth::Float64, divisionCount::Int64)
+  return Cell(birth, divisionCount, [])
 end
 
 stimulate(_::Cell, _::Stimulus, time::Float64) = nothing
@@ -48,3 +47,4 @@ function divide(cell::AbstractCell, time::Float64)
 
   return new_cell
 end
+

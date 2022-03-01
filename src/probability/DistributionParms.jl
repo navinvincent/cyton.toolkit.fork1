@@ -6,7 +6,10 @@ export DistributionParmSet,
   NormalParms, 
   PoissonParms, 
   draw,
-  plotPdf
+  plotPdf,
+  describe
+
+draw(d::DistributionParmSet) = error("draw not implemented for $(typeof(d)).")
 
 include("poisson.jl")
 include("log_normal.jl")

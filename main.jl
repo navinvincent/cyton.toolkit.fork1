@@ -1,18 +1,6 @@
-using Agents, InteractiveDynamics, StatsPlots, DataFrames
-plotlyjs()
+using Cyton
 
-using Cyton: createModel
-
-function dashedLine(n::Int=20, c::Char='-')
-  s = ""
-  for _ in 1:n
-    s *= c
-  end
-  return s
-end
-d = dashedLine()
-
-println(d * " start " * d)
+println(rpad(lpad(" start ", 30, "-"), 55, "-"))
 
 include("src/models/stretched.jl")
 
