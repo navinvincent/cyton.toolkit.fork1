@@ -18,6 +18,8 @@ Time units are hours.
 """
 
 using Cyton
+import Cyton: shouldDie, shouldDivide, inherit, step
+
 using DataFrames
 using Gadfly: plot, layer, cm, Gadfly, Theme, Guide, Geom, Col
 
@@ -46,7 +48,7 @@ function DeathTimer(r::DistributionParmSet)
   DeathTimer(draw(r))
 end
 inherit(timer::DeathTimer, time::Float64) = timer
-Cyton.step(timer::DeathTimer, time::Float64, Δt::Float64) = nothing
+step(timer::DeathTimer, time::Float64, Δt::Float64) = nothing
 
 "Time to divide drawn from distribution"
 struct DivisionTimer <: FateTimer
@@ -57,7 +59,7 @@ end
 DivisionTimer(division::DistributionParmSet, destiny::DistributionParmSet) = DivisionTimer(draw(division), draw(destiny))
 "Constructor for daughter cells"
 DivisionTimer(r::DistributionParmSet, start::Float64, destiny::Float64) = DivisionTimer(draw(r) + start, destiny)
-Cyton.step(timer::DivisionTimer, time::Float64, Δt::Float64) = nothing
+step(timer::DivisionTimer, time::Float64, Δt::Float64) = nothing
 inherit(timer::DivisionTimer, time::Float64) = DivisionTimer(λ_subsequentDivision, time, timer.timeToDestiny)
 
 "Create a new cell"
@@ -72,7 +74,7 @@ end
 shouldDie(death::DeathTimer, time::Float64) = time > death.timeToDeath
 
 "Indicate the cell will divide. Must be earlier than destiny and after the next division time"
-shouldDivide(division::DivisionTimer, time::Float64) = time < division.timeToDestiny && time > division.timeToDivision
+shouldDivide(division::DivisionTimer, time::Float64) = error("fuk")#time < division.timeToDestiny && time > division.timeToDivision
 
 function run(model::CellPopulation, runDuration::Float64)
   print("Time to run:")
@@ -92,7 +94,7 @@ function run(model::CellPopulation, runDuration::Float64)
     )
     Δt = modelTimeStep(model)
     for tm in 1:Δt:runDuration
-      Cyton.step(model)
+      step(model)
 
       local genCnts = zeros(10)
       cells = model.cells
@@ -116,5 +118,5 @@ function run(model::CellPopulation, runDuration::Float64)
 end
 
 println(rpad(lpad(" start ", 30, "-"), 55, "-"))
-model = createModel(1000, cellFactory)
+model = createPopulation(1000, cellFactory)
 run(model, 100.0)

@@ -16,6 +16,7 @@ Gadfly.push_theme(Theme(background_color="white"))
 import Base: step # work around bug in adding additional methods with this name
 
 using Cyton
+import Cyton: step
 
 @enum Phase G1 S G2M
 # CpG stimulated B cells

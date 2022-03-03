@@ -1,15 +1,15 @@
 abstract type FateTimer end
 
-export step, shouldDie, shouldDivide, inherit
+export shouldDie, shouldDivide, inherit
 
 "Step the cell module forward by one time increment"
-step(timer::FateTimer, time::Float64, Δt::Float64) = error("step method not implemented")
+step(::FateTimer, time::Float64, Δt::Float64) = error("stepTimer method not implemented")
 
 "This is called every time step. If it return true the cell is removed from the simmulation"
-shouldDie(timer::FateTimer, time::Float64) = false
+shouldDie(::FateTimer, time::Float64) = false
 
 "Call every time step and potentiall returns a new cell"
-shouldDivide(fateTimer::FateTimer, time::Float64) = false
+shouldDivide(::FateTimer, time::Float64) = false
 
 "Inheritence mechanism for fate timers"
 inherit(timer::FateTimer, time::Float64) = error("inherit method not implemented")

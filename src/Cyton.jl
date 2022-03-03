@@ -2,7 +2,7 @@ module Cyton
 
 using Agents
 
-export modelTime, modelTimeStep, step, createModel, CellPopulation
+export modelTime, modelTimeStep, step, createPopulation, CellPopulation, cellCount
 
 include("probability/DistributionParms.jl")
 include("cells/CellModules.jl")
@@ -21,15 +21,16 @@ end
 
 modelTime(model::CellPopulation) = model.model.properties[:step_cnt] * modelTimeStep(model)
 modelTimeStep(model::CellPopulation) = model.model.properties[:Δt]
+cellCount(model::CellPopulation) = length(model.model.agents)
 
-function createModel(Ncells::Int, cellFactory::Function)
+function createPopulation(Ncells::Int, cellFactory::Function)
   space = VoidSpace()
   scheduler = Schedulers.fastest
   properties = Dict(:step_cnt => 0, :Δt => 0.1)
   model = AgentBasedModel(CellAgent, space; properties, scheduler)
 
   for id in 1:Ncells
-    cell = cellFactory()
+    cell = cellFactory(0.0)
     agent = CellAgent(id, cell)
     add_agent_pos!(agent, model)
   end
@@ -38,16 +39,16 @@ function createModel(Ncells::Int, cellFactory::Function)
 end
 
 step(model::CellPopulation, stimulus::T) where T<:Stimulus = step(model, [stimulus])
-step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus = step!(model.model, (a, _) -> cellStepper(a, model, stimuli), modelStepper)
+step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus = step!(model.model, (a, _) -> step(a, model, stimuli), stepModel)
 
-function cellStepper(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
+function step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
   Δt = model.model.properties[:Δt]
   time = modelTime(model)
   doStep(agent, time, Δt, model, stimuli)
 end
 
 
-modelStepper(model::AgentBasedModel) = model.properties[:step_cnt] += 1
+stepModel(model::AgentBasedModel) = model.properties[:step_cnt] += 1
 
 function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
   cell = agent.cell
@@ -72,7 +73,7 @@ function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::CellPopula
   if willDivide
     new_cell = divide(cell, time)
     if new_cell ≠ nothing
-      new_agent = CellAgent(model.maxid[]+1, new_cell)
+      new_agent = CellAgent(model.model.maxid[]+1, new_cell)
       add_agent_pos!(new_agent, model.model)
     end
   end
