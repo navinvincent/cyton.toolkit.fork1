@@ -40,25 +40,24 @@ initialWeights = Dict{String, Float64}([
   "BIM"   => -5,
 ])
 initialThreshold = 6.0
-gracePeriod = 72.0 # hours
 
 #----------------- Death machinery ------------------
-struct ThresholdDeath <: FateTimer
+mutable struct ThresholdDeath <: FateTimer
   "The threshold below which the cell will die"
   threshold::Float64
   "The protein level weights"
   weights::Dict{String, Float64}
   "References to the current protein level"
   proteinLevels::Dict{String, TimeCourseParameters}
-  "Period before death kicks in"
-  gracePeriod::Float64
+  "A toggle to indicate the cell can now die"
+  canDie::Bool
 end
-function ThresholdDeath(threshold::Float64, weights::Dict{String, Float64}, gracePeriod::Float64, levelGenerator::TimeCourseParameters)
+function ThresholdDeath(threshold::Float64, weights::Dict{String, Float64}, levelGenerator::TimeCourseParameters)
   pl = Dict{String, TimeCourseParameters}()
   for p in proteins
     pl[p] = levelGenerator
   end
-  ThresholdDeath(threshold, weights, pl, gracePeriod)
+  ThresholdDeath(threshold, weights, pl, false)
 end
 
 ensemble(::FateTimer, ::Float64) = 0.0
@@ -89,11 +88,12 @@ proteinLevel(::FateTimer, ::String, ::Float64) = 0.0
 proteinLevel(death::ThresholdDeath, protein::String, time::Float64) = death.proteinLevels[protein](time)
 
 function shouldDie(death::ThresholdDeath, time::Float64)
-  if time < death.gracePeriod
-    return false
+  e = ensemble(death, time)
+  t = death.threshold
+  if e > t
+    death.canDie = true
   end
-
-  return ensemble(death, time) < death.threshold
+  return death.canDie && e < t
 end
 
 step(timer::ThresholdDeath, time::Float64, Δt::Float64) = nothing
@@ -126,7 +126,7 @@ shouldDivide(division::DivisionTimer, time::Float64) = time < division.timeToDes
 function cellFactory(parameters::Parameters, birth::Float64=0.0)
   michelleCell = Cell(birth)
 
-  death = ThresholdDeath(parameters.threshold, initialWeights, gracePeriod, Γ_timeCourseParms(parameters.gstd))
+  death = ThresholdDeath(parameters.threshold, initialWeights, Γ_timeCourseParms(parameters.gstd))
   addTimer(michelleCell, death)
   division = DivisionTimer(λ_firstDivision, λ_divisionDestiny)
   addTimer(michelleCell, division)
@@ -138,6 +138,7 @@ end
 struct Result
   counts::DataFrame
   proteinLevels::DataFrame
+  deathTimes::Vector{Float64}
 end
 
 function run(model::CellPopulation, runDuration::Float64)
@@ -147,6 +148,10 @@ function run(model::CellPopulation, runDuration::Float64)
 
   proteinSampleTimes = Set([72.0, 96.0, 120.0, 144.0, 168.0])
   proteinLevels = DataFrame(time=Float64[], name=String[], level=Float64[])
+  deathTimes = Float64[]
+  deathCounter(::Cell, time::Float64) = push!(deathTimes, time)
+  model.deathCallback = deathCounter
+
   for (i, tm) in enumerate(time)
     step(model)
     count[i] = cellCount(model)
@@ -172,7 +177,7 @@ function run(model::CellPopulation, runDuration::Float64)
   end
 
   counts = DataFrame(time=time, count=count)
-  result = Result(counts, proteinLevels)
+  result = Result(counts, proteinLevels, deathTimes)
 
   return result
 end
@@ -199,7 +204,7 @@ end
 
 results = Dict{ConcreteParameters, Result}()
 @threads for parameter in parameters
-  model = createPopulation(20000, (birth) -> cellFactory(parameter, birth))
+  model = createPopulation(7477, (birth) -> cellFactory(parameter, birth))
   result = run(model, 200.0);
   lock(lk) do 
     results[parameter] = result
@@ -220,3 +225,4 @@ include("plotting.jl")
 @info("Data plotted!")
 
 @info("You are awesome!")
+

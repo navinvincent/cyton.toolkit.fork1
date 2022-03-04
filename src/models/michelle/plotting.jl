@@ -2,12 +2,22 @@
 This is in a seperate file to allow easy rerunning.
 """
 
+if !isdefined(Main, :results)
+  results = deserialize("results.dat");
+end
+
 for (parameter, result) in results
   # Cell count curve
-  counts = result.counts
-  h = plot(counts, x=:time, y=:count, Geom.line, Guide.title("$(parameter)"))
+  # counts = result.counts
+  # h = plot(counts, x=:time, y=:count, Geom.line, Guide.title("$(parameter)"))
+  # display(h)
+
+  # Death time histograms
+  deathTimes = result.deathTimes
+  h = plot(x=deathTimes, Geom.histogram(), Guide.title("$(parameter)"))
   display(h)
 
+  # Protein level histograms
   # levels = result.proteinLevels
   # for protein in vcat(proteins, ["ensemble"])
   #   local ensembleLevel = levels[levels.name .== protein, :]
