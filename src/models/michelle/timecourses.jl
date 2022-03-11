@@ -16,3 +16,23 @@ end
 function (f::GammaTimeCourseParms)(time::Float64)
   f.A * pdf.(Gamma(f.α, f.β), time)
 end
+
+struct PiecewiseLinear <: TimeCourseParameters
+  A::Float64
+  tMax::Float64
+end
+function PiecewiseLinear(d::Distribution, tMax::Float64)
+  PiecewiseLinear(rand(d), tMax)
+end
+function (f::PiecewiseLinear)(time::Float64)
+  tp = 72.0 # turning point
+  if time < tp
+    r = time/tp
+  elseif time < f.tMax
+    r = 1.0 - (time-tp)/(f.tMax-tp)
+  else
+    r = 0.0
+  end
+
+  return f.A * r
+end

@@ -74,7 +74,7 @@ end
 shouldDie(death::DeathTimer, time::Float64) = time > death.timeToDeath
 
 "Indicate the cell will divide. Must be earlier than destiny and after the next division time"
-shouldDivide(division::DivisionTimer, time::Float64) = error("fuk")#time < division.timeToDestiny && time > division.timeToDivision
+shouldDivide(division::DivisionTimer, time::Float64) = error("is this working?")#time < division.timeToDestiny && time > division.timeToDivision
 
 function run(model::CellPopulation, runDuration::Float64)
   print("Time to run:")

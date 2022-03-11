@@ -2,22 +2,26 @@
 This is in a seperate file to allow easy rerunning.
 """
 
+using Gadfly: plot, layer, cm, Gadfly, Theme, Guide, Geom, Col, mm, style, Scale, PNG
+
 if !isdefined(Main, :results)
   results = deserialize("results.dat");
 end
 
 for (parameter, result) in results
   # Cell count curve
-  # counts = result.counts
-  # h = plot(counts, x=:time, y=:count, Geom.line, Guide.title("$(parameter)"))
-  # display(h)
-
-  # Death time histograms
-  deathTimes = result.deathTimes
-  h = plot(x=deathTimes, Geom.histogram(), Guide.title("$(parameter)"))
+  counts = result.counts
+  h = plot(counts, x=:time, y=:count, Geom.line, Guide.title("$(parameter)"))
   display(h)
+  # h |> PNG("/Users/thomas.e/Desktop/population $(parameter).png", 15cm, 15cm)
 
-  # Protein level histograms
+  # # Death time histograms
+  # deathTimes = result.deathTimes
+  # h = plot(x=deathTimes, Geom.histogram(), Guide.xlabel("Age (hours)"), Guide.title("$(parameter)"))
+  # display(h)
+  # # h |> PNG("/Users/thomas.e/Desktop/death histogram $(parameter).png", 15cm, 15cm)
+
+  # # Protein level histograms
   # levels = result.proteinLevels
   # for protein in vcat(proteins, ["ensemble"])
   #   local ensembleLevel = levels[levels.name .== protein, :]
