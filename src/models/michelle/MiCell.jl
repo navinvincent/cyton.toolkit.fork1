@@ -3,10 +3,7 @@ using Cyton
 
 import Cyton: shouldDie, shouldDivide, inherit, step
 
-include("timecourses.jl")
-
-
-abstract type Parameters end
+include("utils.jl")
 
 # Parameters from the Cyton2 paper
 λ_firstDivision = LogNormalParms(log(39.89), 0.28)
@@ -15,14 +12,13 @@ abstract type Parameters end
 # λ_lifetime = LogNormalParms(log(116.8), 0.85)
 
 # Parameters for the distributions protein level time courses
-include("timecourses.jl")
-# TimeCourseParms(gstd::Float64) = GammaTimeCourseParms(LogNormal(0, gstd), 114.2, 4.6, 24.1)
-TimeCourseParms(gstd::Float64) = PiecewiseLinear(LogNormal(0, gstd), 235.0)
+TimeCourseParms(gstd::Float64) = GammaTimeCourseParms(LogNormal(0, gstd), 114.2, 4.6, 24.1)
+# TimeCourseParms(gstd::Float64) = PiecewiseLinear(LogNormal(0, gstd), 235.0)
 
 proteins = ["BCL2", "BCLxL", "MCL1", "BIM"]
 initialWeights = Dict{String, Float64}([
   "BCL2"  =>  5,
-  "BCLxL" =>  5,
+  "BCLxL" =>  1,
   "MCL1"  =>  5,
   "BIM"   => -5,
 ])
@@ -37,17 +33,15 @@ mutable struct ThresholdDeath <: FateTimer
   weights::Dict{String, Float64}
   "References to the current protein level"
   proteinLevels::Dict{String, TimeCourseParameters}
-  "A toggle to indicate the cell can now die"
-  canDie::Bool
-  "A mechanismn to keep using the timer even after the cell nominally died"
-  isDead::Bool
+  "The cell cannot die before this time"
+  gracePeriod::Float64
 end
-function ThresholdDeath(threshold::Float64, weights::Dict{String, Float64}, levelGenerator::TimeCourseParameters)
+function ThresholdDeath(threshold::Float64, weights::Dict{String, Float64}, levelGenerator::Function)
   pl = Dict{String, TimeCourseParameters}()
   for p in proteins
-    pl[p] = levelGenerator
+    pl[p] = levelGenerator()
   end
-  ThresholdDeath(threshold, weights, pl, false, false)
+  ThresholdDeath(threshold, weights, pl, gracePeriod)
 end
 
 ensemble(::FateTimer, ::Float64) = 0.0
@@ -78,37 +72,34 @@ proteinLevel(::FateTimer, ::String, ::Float64) = 0.0
 proteinLevel(death::ThresholdDeath, protein::String, time::Float64) = death.proteinLevels[protein](time)
 
 function shouldDie(death::ThresholdDeath, time::Float64)
-  # global gracePeriod
-
-  # if time < gracePeriod
-  #   return false
-  # end
-
-  if death.isDead
-    return true
+  if time < death.gracePeriod
+    return false
   end
 
   e = ensemble(death, time)
   t = death.threshold
-  if e > t
-    death.canDie = true
-  end
 
-  if death.canDie && e < t
-    death.isDead = true
-    return true
-  else
-    return false
-  end
+  return e < t
 end
 
 step(timer::ThresholdDeath, time::Float64, Δt::Float64) = nothing
 
-"Daughters inherit the protein levels??"
+"Daughters inherit the protein levels"
 inherit(deathTimer::ThresholdDeath, time::Float64) = deathTimer
+
+isDead(timer::FateTimer) = false
+isDead(timer::ThresholdDeath) = timer.isDead
+function isDead(cell::Cell)
+  for timer in cell.timers
+    if isDead(timer)
+      return true
+    end
+  end
+  return false
+end
 #-----------------------------------------------------
 
-#--------------- Division machinery ------------------
+#---------------- Division machinery ------------------
 "Time to divide drawn from distribution"
 struct DivisionTimer <: FateTimer
   timeToDivision::Float64
@@ -126,4 +117,18 @@ DivisionTimer(r::DistributionParmSet, start::Float64, destiny::Float64) = Divisi
 
 "Indicate the cell will divide. Must be earlier than destiny and after the next division time"
 shouldDivide(division::DivisionTimer, time::Float64) = time < division.timeToDestiny && time > division.timeToDivision
-#----------------------------------------------------
+#------------------------------------------------------
+
+#-------------------- BaxBak KO -----------------------
+"""
+Once the cell has nominally died, we pretend we are BaxBak KO. We keep
+going so that we know what the uncensorted protein levels look like.
+"""
+function deathObserver(::Death, cell::Cell, time::Float64)
+  for timer in cell.timers
+    if timer isa DivisionTimer
+      timer.timeToDesting = Inf64
+    end
+  end
+end
+#------------------------------------------------------

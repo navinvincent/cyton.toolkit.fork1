@@ -13,20 +13,25 @@ import Cyton: shouldDie, shouldDivide, inherit, step
 using DataFrames, Colors, Cairo
 
 using Base.Threads, Serialization
-import Base.show
-
-# Gadfly defaults
-Gadfly.set_default_plot_size(20cm, 20cm)
-Gadfly.push_theme(Theme(background_color="white"))
 
 include("MiCell.jl")
 
-#------------------ Cell factory --------------------
-function cellFactory(parameters::Parameters, birth::Float64=0.0)
-  michelleCell = Cell(birth)
+struct WildType <: CellType end
+struct KO <: CellType end
 
-  death = ThresholdDeath(parameters.threshold, initialWeights, TimeCourseParms(parameters.gstd))
+#------------------ Cell factory --------------------
+function cellFactory(parameters::Parameters, birth::Float64=0.0, cellType::T=GenericCell()) where T <: CellType
+  michelleCell = Cell(birth, cellType)
+
+  if T == WildType
+    threshold = parameters.threshold
+  else
+    threshold = 0.0 # knockout nevers dies!
+  end
+
+  death = ThresholdDeath(threshold, initialWeights, () -> TimeCourseParms(parameters.gstd))
   addTimer(michelleCell, death)
+
   division = DivisionTimer(λ_firstDivision, λ_divisionDestiny)
   addTimer(michelleCell, division)
 
@@ -34,22 +39,18 @@ function cellFactory(parameters::Parameters, birth::Float64=0.0)
 end
 #----------------------------------------------------
 
-struct Result
-  counts::DataFrame
-  proteinLevels::DataFrame
-  deathTimes::Vector{Float64}
-end
-
 function run(model::CellPopulation, runDuration::Float64)
   Δt = modelTimeStep(model)
   time = 0:Δt:runDuration
   count = zeros(Int, length(time))
 
   proteinSampleTimes = Set([72.0, 96.0, 120.0, 144.0, 168.0])
-  proteinLevels = DataFrame(time=Float64[], name=String[], level=Float64[])
+  proteinLevels = DataFrame(time=Float64[], protein=String[], level=Float64[], genotype=String[])
   deathTimes = Float64[]
+  sizehint!(deathTimes, length(model)*10)
   deathCounter(::Cell, time::Float64) = push!(deathTimes, time)
   model.deathCallback = deathCounter
+  genotype = string(cellType(first(values(model.cells))))
 
   for (i, tm) in enumerate(time)
     step(model)
@@ -60,51 +61,55 @@ function run(model::CellPopulation, runDuration::Float64)
       for protein in proteins
         for cell in model.cells
           level = proteinLevel(cell, protein, tm)
-          push!(proteinLevels, (tm, protein, level))
+          push!(proteinLevels, (tm, protein, level, genotype))
         end
       end
 
       for cell in model.cells
         level = ensemble(cell, tm)
-        push!(proteinLevels, (tm, "ensemble", level))
+        push!(proteinLevels, (tm, "ensemble", level, genotype))
       end
     end
   end
 
-  counts = DataFrame(time=time, count=count)
+  counts = DataFrame(time=time, count=count, genotype=genotype)
   result = Result(counts, proteinLevels, deathTimes)
 
   return result
 end
 
-struct ConcreteParameters <: Parameters
-  threshold::Float64
-  gstd::Float64
-end
-show(io::IO, ::Parameters) = print(io, "no desciption")
-show(io::IO, parms::ConcreteParameters) = print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd)")
-
 lk = ReentrantLock()
 results = Dict{Parameters, Result}()
 
-thresholds = 1.0:2.0:7.0
+thresholds = [2.0, 4.0]#4.0:2.0:10.0
 gstds      = 0.1:0.2:0.5
 parameters = ConcreteParameters[]
 for threshold in thresholds
   for gstd in gstds
-    p = ConcreteParameters(threshold, gstd)
+    p = ConcreteParameters(threshold, gstd, "low BCLxL")
     push!(parameters, p)
   end
 end
 
-@info("Away we go!")
 results = Dict{ConcreteParameters, Result}()
+nCells = 7477
+
+@info("Away we go!")
 @threads for parameter in parameters
-  model = createPopulation(7477, (birth) -> cellFactory(parameter, birth))
-  result = run(model, 200.0);
+  result = Result()
+
+  for cellType in [WildType(), KO()]
+    model = createPopulation(nCells, (birth) -> cellFactory(parameter, birth, cellType))
+    r = run(model, 200.0);
+    lock(lk) do
+      append!(result, r)
+    end
+  end
+
   lock(lk) do 
     results[parameter] = result
   end
+
   @info("$(parameter) done")
 end
 
@@ -116,7 +121,7 @@ end
 
 @info("Data saved!")
 
-include("plotting.jl")
+# include("plotting.jl")
 
 @info("Data plotted!")
 

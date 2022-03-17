@@ -1,6 +1,7 @@
 module Cyton
 
 using Agents
+import Base.length
 
 export modelTime, modelTimeStep, step, createPopulation, CellPopulation, cellCount
 
@@ -23,6 +24,8 @@ function Base.getproperty(population::CellPopulation, v::Symbol)
   end
   return getfield(population, v) # Just fall through for other fields
 end
+
+Base.length(population::CellPopulation) = length(population.model.agents)
 
 "Get the current model time"
 modelTime(model::CellPopulation) = model.model.properties[:step_cnt] * modelTimeStep(model)
@@ -69,7 +72,6 @@ function step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where
   doStep(agent, time, Δt, model, stimuli)
 end
 
-
 stepModel(model::AgentBasedModel) = model.properties[:step_cnt] += 1
 
 function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
@@ -87,6 +89,7 @@ function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::CellPopula
     model.deathCallback(cell, time)
     die(cell)
     kill_agent!(agent, model.model)
+    notifyObservers(Death(), cell, time)
   end
 
   for stimulus in stimuli
@@ -96,7 +99,9 @@ function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::CellPopula
   if willDivide
     model.divisionCallback(cell, time)
     new_cell = divide(cell, time)
+    notifyObservers(Division(), cell, time)
     if new_cell ≠ nothing
+      notifyObservers(Division(), new_cell, time)
       new_agent = CellAgent(model.model.maxid[]+1, new_cell)
       add_agent_pos!(new_agent, model.model)
     end
