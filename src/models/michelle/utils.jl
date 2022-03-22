@@ -1,6 +1,6 @@
 "Model a distribution of time courses."
 
-using Distributions, DataFrames
+using Distributions, DataFrames, Fontconfig, Cairo
 import Base.show, Base.append!
 
 abstract type Parameters end
@@ -70,3 +70,15 @@ function show(io::IO, parms::ConcreteParameters)
   end
   print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd)$extra")
 end
+
+
+# # Render to PNG instead of SVG
+# # https://discourse.julialang.org/t/why-is-julias-graphics-system-so-slow/68750/33
+# struct PNGPlot
+#     p::Gadfly.Plot
+# end
+# Base.show(io::IO, ::MIME"image/png", pp::PNGPlot) = draw(PNG(io), pp.p)
+
+# png(p) = PNGPlot(p)
+
+#plot(y=[1,2,3]) |> png

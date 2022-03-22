@@ -78,15 +78,13 @@ function run(model::CellPopulation, runDuration::Float64)
   return result
 end
 
-lk = ReentrantLock()
-results = Dict{Parameters, Result}()
 
-thresholds = [2.0, 4.0]#4.0:2.0:10.0
-gstds      = 0.1:0.2:0.5
+thresholds = 1.0:1.0:4.0
+gstds      = 0.1:0.2:0.4
 parameters = ConcreteParameters[]
 for threshold in thresholds
   for gstd in gstds
-    p = ConcreteParameters(threshold, gstd, "low BCLxL")
+    p = ConcreteParameters(threshold, gstd)
     push!(parameters, p)
   end
 end
@@ -94,23 +92,54 @@ end
 results = Dict{ConcreteParameters, Result}()
 nCells = 7477
 
-@info("Away we go!")
-@threads for parameter in parameters
-  result = Result()
+struct Job
+  parameter::Parameters
+  result::Result
+  lk::ReentrantLock
+  function Job(parameter::Parameters)
+    new(parameter, Result(), ReentrantLock())
+  end
+end
+struct JobRef
+  job::Job
+  cellType::CellType
+end
+lk = ReentrantLock()
+results = Dict{Parameters, Result}()
 
-  for cellType in [WildType(), KO()]
-    model = createPopulation(nCells, (birth) -> cellFactory(parameter, birth, cellType))
-    r = run(model, 200.0);
-    lock(lk) do
-      append!(result, r)
-    end
+function runJob(jobRef::JobRef, results::Dict{Parameters, Result})
+  cellType = jobRef.cellType
+  job = jobRef.job
+  parameter = job.parameter
+  result = job.result
+
+  model = createPopulation(nCells, (birth) -> cellFactory(parameter, birth, cellType))
+  r = run(model, 200.0);
+  lock(job.lk) do
+    append!(result, r)
   end
 
   lock(lk) do 
     results[parameter] = result
   end
+end
 
-  @info("$(parameter) done")
+@info("Away we go!")
+
+jobs = Vector{JobRef}()
+for parameter in parameters
+  job = Job(parameter)
+  for cellType in [WildType(), KO()]
+    jobRef = JobRef(job, cellType)
+    push!(jobs, jobRef)
+  end
+end
+  
+
+result = Result()
+@threads for job in jobs
+  runJob(job, results)
+  @info("$(job.job.parameter) $(job.cellType) done")
 end
 
 @info("Runs finished!")
@@ -121,7 +150,7 @@ end
 
 @info("Data saved!")
 
-# include("plotting.jl")
+include("plotting.jl")
 
 @info("Data plotted!")
 
