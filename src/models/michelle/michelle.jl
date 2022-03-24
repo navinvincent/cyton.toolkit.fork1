@@ -29,7 +29,9 @@ function cellFactory(parameters::Parameters, birth::Float64=0.0, cellType::T=Gen
     threshold = 0.0 # knockout nevers dies!
   end
 
-  death = ThresholdDeath(threshold, initialWeights, () -> TimeCourseParms(parameters.gstd))
+  weights = copy(initialWeights)
+  weights["BCLxL"] = parameters.bclxlWeight
+  death = ThresholdDeath(threshold, weights, () -> TimeCourseParms(parameters.gstd))
   addTimer(michelleCell, death)
 
   division = DivisionTimer(λ_firstDivision, λ_divisionDestiny)
@@ -43,8 +45,9 @@ function run(model::CellPopulation, runDuration::Float64)
   Δt = modelTimeStep(model)
   time = 0:Δt:runDuration
   count = zeros(Int, length(time))
+  cohort = zeros(Float64, length(time))
 
-  proteinSampleTimes = Set([72.0, 96.0, 120.0, 144.0, 168.0])
+  proteinSampleTimes = Set([72.0, 96.0, 120.0, 140.0, 160.0, 180.0, 200.0])
   proteinLevels = DataFrame(time=Float64[], protein=String[], level=Float64[], genotype=String[])
   deathTimes = Float64[]
   sizehint!(deathTimes, length(model)*10)
@@ -54,7 +57,8 @@ function run(model::CellPopulation, runDuration::Float64)
 
   for (i, tm) in enumerate(time)
     step(model)
-    count[i] = cellCount(model)
+    count[i]  = cellCount(model)
+    cohort[i] = cohortCount(model)
 
     if tm in proteinSampleTimes
       
@@ -72,20 +76,23 @@ function run(model::CellPopulation, runDuration::Float64)
     end
   end
 
-  counts = DataFrame(time=time, count=count, genotype=genotype)
+  counts = DataFrame(time=time, count=count, cohort=cohort, genotype=genotype)
   result = Result(counts, proteinLevels, deathTimes)
 
   return result
 end
 
 
-thresholds = 1.0:1.0:4.0
-gstds      = 0.1:0.2:0.4
+thresholds    = 1.0:1.0:4.0
+gstds         = 0.1:0.2:0.4
+bclxllWeights = [0.1, 1, 10]
 parameters = ConcreteParameters[]
 for threshold in thresholds
   for gstd in gstds
-    p = ConcreteParameters(threshold, gstd)
-    push!(parameters, p)
+    for weight in bclxllWeights
+      p = ConcreteParameters(threshold, gstd, weight)
+     push!(parameters, p)
+    end
   end
 end
 
@@ -144,15 +151,14 @@ end
 
 @info("Runs finished!")
 
-open("results.dat", "w") do io
+open("results2.dat", "w") do io
   serialize(io, results)
 end
 
 @info("Data saved!")
 
-include("plotting.jl")
-
-@info("Data plotted!")
+# include("plotting.jl")
+# @info("Data plotted!")
 
 @info("You are awesome!")
 

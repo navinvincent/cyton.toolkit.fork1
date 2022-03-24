@@ -57,9 +57,10 @@ end
 struct ConcreteParameters <: Parameters
   threshold::Float64
   gstd::Float64
+  bclxlWeight::Float64
   comment::String
 end
-ConcreteParameters(threshold::Float64, gstd::Float64) = ConcreteParameters(threshold, gstd, "")
+ConcreteParameters(threshold::Float64, gstd::Float64, weight::Float64) = ConcreteParameters(threshold, gstd, weight, "")
 
 show(io::IO, ::Parameters) = print(io, "no desciption")
 function show(io::IO, parms::ConcreteParameters) 
@@ -68,17 +69,5 @@ function show(io::IO, parms::ConcreteParameters)
   else
     extra = ""
   end
-  print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd)$extra")
+  print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd)$extra BCLxL weight=$(parms.bclxlWeight)")
 end
-
-
-# # Render to PNG instead of SVG
-# # https://discourse.julialang.org/t/why-is-julias-graphics-system-so-slow/68750/33
-# struct PNGPlot
-#     p::Gadfly.Plot
-# end
-# Base.show(io::IO, ::MIME"image/png", pp::PNGPlot) = draw(PNG(io), pp.p)
-
-# png(p) = PNGPlot(p)
-
-#plot(y=[1,2,3]) |> png

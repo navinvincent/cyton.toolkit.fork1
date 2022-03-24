@@ -3,7 +3,7 @@ module Cyton
 using Agents
 import Base.length
 
-export modelTime, modelTimeStep, step, createPopulation, CellPopulation, cellCount
+export modelTime, modelTimeStep, step, createPopulation, CellPopulation, cellCount, cohortCount
 
 include("probability/DistributionParms.jl")
 include("cells/CellModules.jl")
@@ -33,6 +33,14 @@ modelTime(model::CellPopulation) = model.model.properties[:step_cnt] * modelTime
 modelTimeStep(model::CellPopulation) = model.model.properties[:Δt]
 "Get the number of cells in the population"
 cellCount(model::CellPopulation) = length(model.model.agents)
+"The current cohort count, cell count normalised by generation number"
+function cohortCount(model::CellPopulation)
+  cohort = 0.0
+  for cell in model.cells
+    cohort += 2.0^-cell.generation
+  end
+  return cohort
+end
 
 """
 Create a population of cells:

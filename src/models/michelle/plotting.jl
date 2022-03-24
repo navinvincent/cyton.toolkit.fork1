@@ -7,40 +7,47 @@ using Serialization, Cairo, DataFrames, Base.Threads
 
 # Gadfly defaults
 Gadfly.set_default_plot_size(20cm, 20cm)
-Gadfly.push_theme(Theme(background_color="white"))
+Gadfly.push_theme(Theme(background_color="white", alphas=[0.5]))
 
 include("utils.jl")
 
-function populationCurves(result::Result, parameter::Parameters)
+function populationCurves(counts::DataFrame, y::Symbol, title::String)
   # Cell count curve
-  counts = result.counts
-  h = plot(counts, x=:time, y=:count, color=:genotype, Geom.line, Guide.title("$(parameter)"))
-  return h
+  return plot(counts, x=:time, y=y, color=:genotype, Geom.line, Guide.title(title))
 end
 
-function proteinHistograms(result::Result, parameter::Parameters)
+function proteinHistograms2(levels::DataFrame, title::String)
+  levels = levels[levels.level .> 0.0, :]
+  h = plot(levels,
+    x=:level,
+    color=:genotype,
+    Geom.histogram(position=:dodge),
+    Coord.cartesian(xmin=-1, xmax=2),
+    Guide.title(title),
+    Scale.x_log10,
+  )
+  return h
+end
+  
+function proteinHistograms(levels::DataFrame, title::String)
   # Protein level histograms by genotype, time and protein
-  levels = result.proteinLevels
   levels = levels[levels.level .> 0.0, :]
   h = plot(levels,
     xgroup=:protein,
     ygroup=:time,
     x=:level,
     color=:genotype,
-    Geom.subplot_grid(Geom.histogram(position=:dodge), Coord.cartesian(xmin=-1, xmax=1)),
-    Guide.title("$(parameter)"),
+    Geom.subplot_grid(Geom.histogram(position=:dodge), Coord.cartesian(xmin=-1, xmax=2)),
+    Guide.title(title),
     Scale.x_log10(minvalue=0.1, maxvalue=100),
     )
   return h
 end
 
-function deathTimeHistograms(result::Result, parameter::Parameters, plotFrame::Union{DataFrame, Nothing}=nothing)
+function deathTimeHistograms(result::Result, parameter::Parameters)
   # Death time histograms  
   deathTimes = result.deathTimes
   h = plot(x=deathTimes, color=:genotype, Geom.histogram(), Guide.xlabel("Age (hours)"), Guide.title("$(parameter)"))
-  if plotFrame ≠ nothing
-    append!(plotFrame, DataFrame(plots=h, plotType="Death time histograms"))
-  end
   return h
 end
 
@@ -56,18 +63,50 @@ function cb(h)
   end
 end
 
-#@threads 
+
+# @threads 
 for (parameter, result) in collect(results)
+  fn = "outputs/population $(parameter).png"
+  if !isfile(fn)
+    counts = result.counts
+    h = populationCurves(counts, :counts, "$(parameter)")
+    cb(h)
+    h |> PNG(fn, 15cm, 15cm)
+  end
 
-  h = populationCurves(result, parameter)
-  # display(h)
-  cb(h)
-  h |> PNG("/Users/thomas.e/Desktop/population $(parameter).png", 15cm, 15cm)
+  # fn = "outputs/cohort $(parameter).png"
+  # if !isfile(fn)
+  #   cohort = result.cohort
+  #   h = populationCurves(counts, :cohort, "$(parameter)")
+  #   cb(h)
+  #   h |> PNG(fn, 15cm, 15cm)
+  # end
 
-  h = proteinHistograms(result, parameter)
-  # display(h)
-  cb(h)
-  h |> PNG("/Users/thomas.e/Desktop/protein level $(parameter).png", 40cm, 25cm)
+  levels = result.proteinLevels
+  
+  fn = "outputs/protein level $(parameter).png"
+  if !isfile(fn)
+    h = proteinHistograms(levels, "$(parameter)")
+    cb(h)
+    h |> PNG(fn, 40cm, 25cm)
+  end
+
+  times = unique(levels[!, :time])
+  local proteins = unique(levels[!, :protein])
+  for time in times
+    for protein in proteins
+      title = "$(parameter) time=$(time) protein=$(protein)"
+      fn = "outputs/protein level $(title).png"
+      if !isfile(fn)
+        lvl = levels[levels.time .== time .&& levels.protein .== protein, :]
+        h = proteinHistograms2(lvl, title)
+        cb(h)
+        h |> PNG(fn, 15cm, 15cm)
+      end
+    end
+  end
+
+  
 end
 
 open("plots.dat", "w") do io
