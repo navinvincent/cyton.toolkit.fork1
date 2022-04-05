@@ -7,16 +7,14 @@ PROCEEDINGS OF THE NATIONAL ACADEMY OF SCIENCES 2014
 https://dx.doi.org/10.1073/pnas.1322420111
 """
 
-using Agents, Cairo, Gadfly
+using Cyton
+import Cyton: shouldDie, shouldDivide, inherit, step, stimulate
+using Gadfly: plot, layer, cm, Gadfly, Theme, Guide, Geom, Col, mm, style, Scale, PNG, SVG, SVGJS, Coord, Plot
+using Serialization, Cairo, DataFrames, Base.Threads, Colors, Cairo
 
 # Gadfly defaults
-set_default_plot_size(20cm, 20cm)
-Gadfly.push_theme(Theme(background_color="white"))
-
-import Base: step # work around bug in adding additional methods with this name
-
-using Cyton
-import Cyton: step
+Gadfly.set_default_plot_size(20cm, 20cm)
+Gadfly.push_theme(Theme(background_color="white", alphas=[0.5]))
 
 @enum Phase G1 S G2M
 # CpG stimulated B cells
@@ -100,23 +98,21 @@ function stretchedCellFactory(birth::Float64=0.0)
   return cell
 end
 
-function runModel!(model::AgentBasedModel, runDuration::Float64, stimulus::Stimulus, callback::Function=(_) -> nothing)
-  Δt = model.properties[:Δt]
+function runModel!(model::CellPopulation, runDuration::Float64, stimulus::Stimulus, callback::Function=(_) -> nothing)
+  Δt = modelTimeStep(model)
   for _ in 0:Δt:runDuration
     step(model, stimulus)
     callback(model)
   end
 end
 
-function survivalCurves(model::AgentBasedModel)
-  cellAgents = values(model.agents)
+function survivalCurves(model::CellPopulation)
   totalAlpha = Vector{Float64}()
   g1Alpha = Vector{Float64}()
   sg2mAlpha = Vector{Float64}()
   
   runDuration = model_time(model)
-  for a in cellAgents
-    cell = a.cell
+  for cell in model.cells
     push!(totalAlpha, remaining(cell, runDuration))
     cycle = cell.timers[1]
     if phase(cycle, runDuration) == G1
@@ -151,14 +147,13 @@ function survivalCurves(model::AgentBasedModel)
   println("Done at model time: $(model.properties[:step_cnt]*model.properties[:Δt])")
 end
 
-function dnaStainLevels(model::AgentBasedModel)
-  time = model_time(model)
-  NCells = length(model.agents)
+function dnaStainLevels(model::CellPopulation)
+  time = modelTime(model)
+  NCells = length(model.cells)
   brdus = zeros(NCells)
   dnas = zeros(NCells)
   negDnaCnt = 0
-  for (i, a) in enumerate(values(model.agents))
-    c = a.cell
+  for (i, c) in enumerate(model.cells)
     fate = c.timers[1]
     brdus[i] = fate.brdu.current
     (p, timeInPhase) = phase(fate, time)
@@ -191,7 +186,7 @@ struct BrduStimulus <: Stimulus
   pulseEnd::Real
 end
 
-function Cyton.stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
+function stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
 
   pulseStart = stim.pulseStart
   pulseEnd   = stim.pulseEnd
@@ -213,32 +208,30 @@ function Cyton.stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
 end
 
 struct RunResult
-  plot::Union{Plot, Nothing}
+  plot::Union{Nothing, Plot}
   dnas::Vector{Real}
   brdus::Vector{Real}
   stimDur::Real
-  runDur::Real
-  model::AgentBasedModel
+  model::CellPopulation
   negDnaCnt::Int
 end
 
 forReal = true
-results = []
+results = RunResult[]
 if forReal
   println("-------------------- start --------------------")
-  stimDurs = [0.125]#, 0.25, 0.5, 1.0, 2.0, 4.0]
+  stimDurs = [0.5, 1.0, 2.0, 4.0]
   for stimDur in stimDurs
     local model, rt, dnas, result, p, brdus, negDnaCnt
-    model = createModel(20000, stretchedCellFactory)
-    model.properties[:Δt] = 0.01
+    model = createPopulation(200000, stretchedCellFactory)
+    # model.properties[:Δt] = 0.01
   
     stim = BrduStimulus(0.5, 0.5+stimDur)
-    rt = @timed runModel!(model, 1.0+stimDur, stim)
-    println("Elaspsed time: $(rt[2])")
+    rt = runModel!(model, 1.0+stimDur, stim)
   
     (dnas, brdus, negDnaCnt) = dnaStainLevels(model);
 
-    title = "pulse=$(Int(round(stimDur*60)))mins"
+    # title = "pulse=$(Int(round(stimDur*60)))mins"
     # p = plot(x=dnas, 
     # y=brdus, 
     # Geom.histogram2d, 
@@ -249,9 +242,9 @@ if forReal
     # Guide.title(title),
     # Theme(background_color="white", key_position=:none))
     # display(p)
-    # p |> PNG("/Users/thomas.e/Desktop/$(title).png", 6inch, 6inch)
+    # p |> PNG("/Users/thomas.e/Desktop/$(title).png", 15cm, 15cm)
     p = nothing
-    result = RunResult(p, dnas, brdus, stimDur, rt[2], model, negDnaCnt)
+    result = RunResult(p, dnas, brdus, stimDur, model, negDnaCnt)
     push!(results, result)
   end  
 end
@@ -259,8 +252,9 @@ end
 include("../../../MichelleData/julia/src/WriteFCS.jl")
 
 for (i, result) in enumerate(results)
-  dnas = results[i].dnas
-  brdus = results[i].brdus
+  dnas = result.dnas
+  brdus = result.brdus
+  stimDur = Int(round(result.stimDur*60))
   params = Dict(
     "\$TOT" => string(length(dnas)),
     "\$P1N" => "DNA",
@@ -278,7 +272,7 @@ for (i, result) in enumerate(results)
     "DNA" => convert(Vector{Float32}, dnas),
   )
   fcs = FlowSample{Float32}(data, params)
-  writeFcs("/Users/thomas.e/Desktop/$(i).fcs", fcs)
+  writeFcs("/Users/thomas.e/Desktop/$(stimDur).fcs", fcs)
 end
 
 # tm = [r.stimDur*60 for r in results]

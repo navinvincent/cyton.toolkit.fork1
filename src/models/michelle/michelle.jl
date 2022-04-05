@@ -8,7 +8,7 @@ A cell model based on a mix of Michelle's experiments and the Cyton2 paper.
 """
 
 using Cyton
-import Cyton: shouldDie, shouldDivide, inherit, step
+import Cyton: shouldDie, shouldDivide, inherit, step, stimulate
 
 using DataFrames, Colors, Cairo
 
@@ -16,17 +16,14 @@ using Base.Threads, Serialization
 
 include("MiCell.jl")
 
-struct WildType <: CellType end
-struct KO <: CellType end
-
 #------------------ Cell factory --------------------
 function cellFactory(parameters::Parameters, birth::Float64=0.0, cellType::T=GenericCell()) where T <: CellType
   michelleCell = Cell(birth, cellType)
 
-  if T == WildType
-    threshold = parameters.threshold
-  else
+  if T == KO
     threshold = 0.0 # knockout nevers dies!
+  else
+    threshold = parameters.threshold
   end
 
   weights = copy(initialWeights)
@@ -41,13 +38,13 @@ function cellFactory(parameters::Parameters, birth::Float64=0.0, cellType::T=Gen
 end
 #----------------------------------------------------
 
-function run(model::CellPopulation, runDuration::Float64)
+function run(model::CellPopulation, runDuration::Float64, stimulus::Stimulus)
   Δt = modelTimeStep(model)
   time = 0:Δt:runDuration
   count = zeros(Int, length(time))
   cohort = zeros(Float64, length(time))
 
-  proteinSampleTimes = Set([72.0, 96.0, 120.0, 140.0, 160.0, 180.0, 200.0])
+  proteinSampleTimes = Set([72.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0])
   proteinLevels = DataFrame(time=Float64[], protein=String[], level=Float64[], genotype=String[])
   deathTimes = Float64[]
   sizehint!(deathTimes, length(model)*10)
@@ -56,7 +53,7 @@ function run(model::CellPopulation, runDuration::Float64)
   genotype = string(cellType(first(values(model.cells))))
 
   for (i, tm) in enumerate(time)
-    step(model)
+    step(model, stimulus)
     count[i]  = cellCount(model)
     cohort[i] = cohortCount(model)
 
@@ -83,21 +80,28 @@ function run(model::CellPopulation, runDuration::Float64)
 end
 
 
-thresholds    = 1.0:1.0:4.0
-gstds         = 0.1:0.2:0.4
-bclxllWeights = [0.1, 1, 10]
+# thresholds    = 1.0:1.0:4.0
+# gstds         = 0.1:0.2:0.4
+# bclxllWeights = [0.1, 1, 10]
+# inhibitionFactors = 0.2:0.2:0.8
+thresholds        = [2.0]
+gstds             = [0.3]
+bclxllWeights     = [0.1]
+inhibitionFactors = 0.2:0.2:0.8
 parameters = ConcreteParameters[]
 for threshold in thresholds
   for gstd in gstds
     for weight in bclxllWeights
-      p = ConcreteParameters(threshold, gstd, weight)
-     push!(parameters, p)
+      for inhibitionFactor in inhibitionFactors
+        p = ConcreteParameters(threshold, gstd, weight, inhibitionFactor)
+        push!(parameters, p)
+      end
     end
   end
 end
 
 results = Dict{ConcreteParameters, Result}()
-nCells = 7477
+nCells = 2000
 
 struct Job
   parameter::Parameters
@@ -120,8 +124,9 @@ function runJob(jobRef::JobRef, results::Dict{Parameters, Result})
   parameter = job.parameter
   result = job.result
 
+  stim = Bh3Stimulus(92.0, parameter.inhibitionFactor, "BCL2")
   model = createPopulation(nCells, (birth) -> cellFactory(parameter, birth, cellType))
-  r = run(model, 200.0);
+  r = run(model, 200.0, stim);
   lock(job.lk) do
     append!(result, r)
   end
@@ -136,7 +141,7 @@ end
 jobs = Vector{JobRef}()
 for parameter in parameters
   job = Job(parameter)
-  for cellType in [WildType(), KO()]
+  for cellType in [WildType(), KO(), WildTypeDrugged()]
     jobRef = JobRef(job, cellType)
     push!(jobs, jobRef)
   end
@@ -151,14 +156,14 @@ end
 
 @info("Runs finished!")
 
-open("results2.dat", "w") do io
+open("results.dat", "w") do io
   serialize(io, results)
 end
 
 @info("Data saved!")
 
-# include("plotting.jl")
-# @info("Data plotted!")
+include("plotting.jl")
+@info("Data plotted!")
 
 @info("You are awesome!")
 

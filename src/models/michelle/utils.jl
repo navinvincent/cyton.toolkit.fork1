@@ -58,16 +58,17 @@ struct ConcreteParameters <: Parameters
   threshold::Float64
   gstd::Float64
   bclxlWeight::Float64
+  inhibitionFactor::Float64
   comment::String
 end
-ConcreteParameters(threshold::Float64, gstd::Float64, weight::Float64) = ConcreteParameters(threshold, gstd, weight, "")
+ConcreteParameters(threshold::Float64, gstd::Float64, weight::Float64, inhibitionFactor::Float64) = ConcreteParameters(threshold, gstd, weight, inhibitionFactor, "")
 
 show(io::IO, ::Parameters) = print(io, "no desciption")
 function show(io::IO, parms::ConcreteParameters) 
-  if parms.comment ≠ ""
-    extra = " ($(parms.comment))"
-  else
+  if parms.comment == ""
     extra = ""
+  else
+    extra = " ($(parms.comment))"
   end
-  print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd)$extra BCLxL weight=$(parms.bclxlWeight)")
+  print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd)$extra BCLxL weight=$(parms.bclxlWeight) IF=$(parms.inhibitionFactor)")
 end

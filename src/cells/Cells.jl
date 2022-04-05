@@ -41,12 +41,12 @@ end
 
 cellType(::AbstractCell{T}) where T <: CellType = T
 
-stimulate(_::Cell, _::Stimulus, time::Float64) = nothing
+function stimulate(_::Cell, _::Stimulus, time::Float64) end
 addTimer(cell::Cell, timer::FateTimer) = push!(cell.timers, timer)
 
 age(cell::Cell, time::Float64) = time - cell.birth
 
-die(cell::AbstractCell) = nothing
+function die(cell::AbstractCell) end
 
 "Create a daughter from the mother and reset the mother's state"
 function divide(cell::AbstractCell, time::Float64) 

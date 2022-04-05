@@ -13,10 +13,12 @@ include("utils/void_space.jl")
 noopCallback(::Cell, ::Float64) = nothing
 mutable struct CellPopulation
   model::AgentBasedModel
+  startingCnt::Int
   deathCallback::Function
   divisionCallback::Function
 end
-CellPopulation(model::AgentBasedModel) = CellPopulation(model, noopCallback, noopCallback)
+CellPopulation(model::AgentBasedModel) = CellPopulation(model, length(model.agents), noopCallback, noopCallback)
+CellPopulation(model::AgentBasedModel, deathCallback::Function, divisionCallback::Function) = CellPopulation(model, length(model.agents), deathCallback, divisionCallback)
 
 function Base.getproperty(population::CellPopulation, v::Symbol)
   if v == :cells
@@ -39,7 +41,7 @@ function cohortCount(model::CellPopulation)
   for cell in model.cells
     cohort += 2.0^-cell.generation
   end
-  return cohort
+  return cohort/model.startingCnt
 end
 
 """

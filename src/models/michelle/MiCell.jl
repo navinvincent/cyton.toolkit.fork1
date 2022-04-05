@@ -5,6 +5,10 @@ import Cyton: shouldDie, shouldDivide, inherit, step
 
 include("utils.jl")
 
+struct WildType <: CellType end
+struct WildTypeDrugged <: CellType end
+struct KO <: CellType end
+
 # Parameters from the Cyton2 paper
 λ_firstDivision = LogNormalParms(log(39.89), 0.28)
 λ_subsequentDivision = FixedDistributionParms(9.21)
@@ -51,7 +55,7 @@ function ensemble(death::ThresholdDeath, time::Float64)
     level = death.proteinLevels[p]
     e += w * level(time)
   end
-  return e
+  return maximum([0.0, e])
 end
 function ensemble(cell::Cell, time::Float64)
   e = 0.0
@@ -119,16 +123,25 @@ DivisionTimer(r::DistributionParmSet, start::Float64, destiny::Float64) = Divisi
 shouldDivide(division::DivisionTimer, time::Float64) = time < division.timeToDestiny && time > division.timeToDivision
 #------------------------------------------------------
 
-#-------------------- BaxBak KO -----------------------
-"""
-Once the cell has nominally died, we pretend we are BaxBak KO. We keep
-going so that we know what the uncensorted protein levels look like.
-"""
-function deathObserver(::Death, cell::Cell, time::Float64)
+
+#---------------- BH3 mimetic treatment ---------------
+struct Bh3Stimulus <: Stimulus
+  applicationTime::Float64
+  inhibitionFactor::Float64
+  protein::String
+end
+
+function stimulate(timer::FateTimer, stimulus::Stimulus, time::Float64) end
+function stimulate(death::ThresholdDeath, bh3::Bh3Stimulus, time::Float64)
+  if time == bh3.applicationTime
+    death.weights[bh3.protein] *= bh3.inhibitionFactor
+  end
+end
+
+function stimulate(cell::Cell{WildTypeDrugged}, bh3::Bh3Stimulus, time::Float64)
   for timer in cell.timers
-    if timer isa DivisionTimer
-      timer.timeToDesting = Inf64
-    end
+    stimulate(timer, bh3, time)
   end
 end
 #------------------------------------------------------
+
