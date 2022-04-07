@@ -40,6 +40,9 @@ function proteinHistograms(levels::DataFrame, title::String)
   # Protein level histograms by genotype, time and protein
   l = levels
   levels = levels[l.level .> 0.0 .&& l.time.>=140 .&& l.time.<=180 .&& l.protein.!="ensemble", :]
+  if isempty(levels)
+    return nothing
+  end
   h = plot(levels,
     xgroup=:protein,
     ygroup=:time,
@@ -63,42 +66,34 @@ if !isdefined(Main, :results)
   results = deserialize("results.dat");
 end
 
-lk = ReentrantLock()
-plots = DataFrame()
-function cb(h) 
-  lock(lk) do
-    append!(plots, DataFrame(plots=h, plotType="Protein histograms"))
-  end
-end
-
-fileCheck = false
-
-# @threads 
-for (parameter, result) in collect(results)
+function bigPlot(parameter, result)
   counts = result.counts
   levels = result.proteinLevels
+  fileCheck = false
 
   fn = "outputs/population $(parameter).png"
   if !fileCheck || !isfile(fn)
     h = populationCurves(counts, :count, "$(parameter)")
-    display(h)
+    # display(h)
     h |> PNG(fn, 15cm, 15cm)
   end
-
-  # fn = "outputs/cohort $(parameter).png"
-  # if !fileCheck || !isfile(fn)
-  #   h = populationCurves(counts, :cohort, "$(parameter)")
-  #   display(h)
-  #   h |> PNG(fn, 15cm, 15cm)
-  # end
-
+  
+  fn = "outputs/cohort $(parameter).png"
+  if !fileCheck || !isfile(fn)
+    h = populationCurves(counts, :cohort, "$(parameter)")
+    # display(h)
+    h |> PNG(fn, 15cm, 15cm)
+  end
+  
   # fn = "outputs/protein level $(parameter).png"
   # if !fileCheck || !isfile(fn)
   #   h = proteinHistograms(levels, "$(parameter)")
-  #   display(h)
-  #   h |> PNG(fn, 40cm, 25cm)
+  #   if !isnothing(h)
+  #     # display(h)
+  #     h |> PNG(fn, 40cm, 25cm)
+  #   end
   # end
-
+  
   # times = unique(levels[!, :time])
   # local proteins = unique(levels[!, :protein])
   # for time in times
@@ -108,14 +103,15 @@ for (parameter, result) in collect(results)
   #     if !fileCheck || !isfile(fn)
   #       lvl = levels[levels.time .== time .&& levels.protein .== protein, :]
   #       h = proteinHistograms2(lvl, title)
-  #       display(h)
+  #       # display(h)
   #       h |> PNG(fn, 15cm, 15cm)
   #     end
   #   end
   # end
-  
+
 end
 
-open("plots.dat", "w") do io
-  serialize(io, plots)
+struct PlotParameters <: Parameters
+  actualParameters::ParameterKey
+  result::Result
 end

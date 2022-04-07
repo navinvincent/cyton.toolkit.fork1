@@ -4,6 +4,7 @@ using Distributions, DataFrames, Fontconfig, Cairo
 import Base.show, Base.append!
 
 abstract type Parameters end
+abstract type JobResult end
 
 abstract type TimeCourseParameters end
 function (f::TimeCourseParameters)(t::Float64) end
@@ -59,16 +60,31 @@ struct ConcreteParameters <: Parameters
   gstd::Float64
   bclxlWeight::Float64
   inhibitionFactor::Float64
+  cellType::CellType
   comment::String
 end
-ConcreteParameters(threshold::Float64, gstd::Float64, weight::Float64, inhibitionFactor::Float64) = ConcreteParameters(threshold, gstd, weight, inhibitionFactor, "")
+ConcreteParameters(threshold::Float64, gstd::Float64, weight::Float64, inhibitionFactor::Float64, cellType::CellType) = ConcreteParameters(threshold, gstd, weight, inhibitionFactor, cellType, "")
+
+struct ParameterKey <: Parameters
+  threshold::Float64
+  gstd::Float64
+  bclxlWeight::Float64
+  inhibitionFactor::Float64
+end
+ParameterKey(cp::ConcreteParameters) = ParameterKey(cp.threshold, cp.gstd, cp.bclxlWeight, cp.inhibitionFactor)
+
+function parameterKey(::Parameters) end
+parameterKey(cp::ConcreteParameters) = ParameterKey(cp)
 
 show(io::IO, ::Parameters) = print(io, "no desciption")
+function show(io::IO, parms::ParameterKey) 
+  print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd) BCLxL weight=$(parms.bclxlWeight) IF=$(parms.inhibitionFactor)")
+end
 function show(io::IO, parms::ConcreteParameters) 
   if parms.comment == ""
     extra = ""
   else
     extra = " ($(parms.comment))"
   end
-  print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd)$extra BCLxL weight=$(parms.bclxlWeight) IF=$(parms.inhibitionFactor)")
+  print(io, "threshold=$(parms.threshold) gstd=$(parms.gstd) BCLxL weight=$(parms.bclxlWeight) IF=$(parms.inhibitionFactor), cell type=$(parms.cellType)$extra")
 end

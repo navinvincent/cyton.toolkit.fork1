@@ -79,91 +79,34 @@ function run(model::CellPopulation, runDuration::Float64, stimulus::Stimulus)
   return result
 end
 
+nCells = 2000
+runTime = 200.0 # hours
 
-# thresholds    = 1.0:1.0:4.0
-# gstds         = 0.1:0.2:0.4
-# bclxllWeights = [0.1, 1, 10]
-# inhibitionFactors = 0.2:0.2:0.8
+# thresholds    = 1.0:1.0:10.0
+# gstds         = 0.1:0.2:0.3
+# bclxllWeights = [0.1]#[0.1, 1, 10]
+# inhibitionFactors = [1.0]#0.2:0.2:0.8
 thresholds        = [2.0]
 gstds             = [0.3]
 bclxllWeights     = [0.1]
-inhibitionFactors = 0.2:0.2:0.8
+inhibitionFactors = 0.2:0.2:0.2
 parameters = ConcreteParameters[]
 for threshold in thresholds
   for gstd in gstds
     for weight in bclxllWeights
       for inhibitionFactor in inhibitionFactors
-        p = ConcreteParameters(threshold, gstd, weight, inhibitionFactor)
-        push!(parameters, p)
+        for cellType in [WildType(), KO(), WildTypeDrugged()]
+          local p = ConcreteParameters(threshold, gstd, weight, inhibitionFactor, cellType)
+          push!(parameters, p)
+        end
       end
     end
   end
 end
 
-results = Dict{ConcreteParameters, Result}()
-nCells = 2000
-
-struct Job
-  parameter::Parameters
-  result::Result
-  lk::ReentrantLock
-  function Job(parameter::Parameters)
-    new(parameter, Result(), ReentrantLock())
-  end
-end
-struct JobRef
-  job::Job
-  cellType::CellType
-end
-lk = ReentrantLock()
-results = Dict{Parameters, Result}()
-
-function runJob(jobRef::JobRef, results::Dict{Parameters, Result})
-  cellType = jobRef.cellType
-  job = jobRef.job
-  parameter = job.parameter
-  result = job.result
-
+function runModel(parameter::ConcreteParameters)
+  cellType = parameter.cellType
   stim = Bh3Stimulus(92.0, parameter.inhibitionFactor, "BCL2")
   model = createPopulation(nCells, (birth) -> cellFactory(parameter, birth, cellType))
-  r = run(model, 200.0, stim);
-  lock(job.lk) do
-    append!(result, r)
-  end
-
-  lock(lk) do 
-    results[parameter] = result
-  end
+  return run(model, runTime, stim);
 end
-
-@info("Away we go!")
-
-jobs = Vector{JobRef}()
-for parameter in parameters
-  job = Job(parameter)
-  for cellType in [WildType(), KO(), WildTypeDrugged()]
-    jobRef = JobRef(job, cellType)
-    push!(jobs, jobRef)
-  end
-end
-  
-
-result = Result()
-@threads for job in jobs
-  runJob(job, results)
-  @info("$(job.job.parameter) $(job.cellType) done")
-end
-
-@info("Runs finished!")
-
-open("results.dat", "w") do io
-  serialize(io, results)
-end
-
-@info("Data saved!")
-
-include("plotting.jl")
-@info("Data plotted!")
-
-@info("You are awesome!")
-
