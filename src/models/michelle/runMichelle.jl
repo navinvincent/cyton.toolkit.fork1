@@ -1,51 +1,51 @@
 using Distributed, ClusterManagers
 
+function freeWorkers()
+  for i in workers() # Tear down any remaining workers
+    if i > 1
+      rmprocs(i)
+    end
+  end  
+end
+
+freeWorkers()
+
 @info("Acquiring remote resources")
-addprocs(SlurmManager(2), partition="regular", t="01:10:00", mem_per_cpu="2G")
+addprocs(SlurmManager(20), partition="regular", t="01:10:00", mem_per_cpu="2G", unbuffered="")
 
 @everywhere include("michelle.jl")
 @everywhere include("plotting.jl")
 
-function f()
-  flush(stdout)
-  flush(stderr)
-end
-
-struct SimJobResult <: JobResult
+@everywhere struct SimJobResult <: JobResult
   parameterKey::ParameterKey
   result::Result
 end
 
-function runJob(parms::ConcreteParameters)
+@everywhere function runJob(parms::ConcreteParameters)
   r = runModel(parms)
   k = parameterKey(parms)
   @info("runModel: $(parms)")
-  f()
   SimJobResult(k, r)
 end
 
-struct PlotJobResult <: JobResult end
-function runJob(parms::PlotParameters)
+@everywhere struct PlotJobResult <: JobResult end
+@everywhere function runJob(parms::PlotParameters)
   bigPlot(parms.actualParameters, parms.result)
   @info("bigPlot: $(parms)")
-  f()
   return PlotJobResult()
 end
 
+nJobs = length(parameters)
 
 # Channels for sending jobs and returning results
-jobChannel = RemoteChannel(() -> Channel{Parameters}(50))
-resultChannel = RemoteChannel(() -> Channel{JobResult}(50))
+jobChannel = RemoteChannel(() -> Channel{Parameters}(nJobs))
+resultChannel = RemoteChannel(() -> Channel{JobResult}(nJobs))
 
 @everywhere function doRunJob(jobChannel, resultChannel)
   @info("runJob started")
-  f()
   while true
     parms = take!(jobChannel)
-    t = Task(() -> runJob(parms))
-    schedule(t)
-    errormonitor(t)
-    result = fetch(t)
+    result = runJob(parms)
     put!(resultChannel, result)
   end
 end
@@ -65,7 +65,7 @@ end
 # Retrieve results and store in a dictionary
 results = Dict{ParameterKey, Result}()
 @info("Waiting for simulation results")
-for _ in 1:length(parameters)
+for _ in 1:nJobs
   jobResult = take!(resultChannel)
   local p = jobResult.parameterKey
   local r = jobResult.result
@@ -94,9 +94,7 @@ end
 
 
 @info("Freeing resources")
-for i in workers()
-  rmprocs(i)
-end  
+freeWorkers()
 
 @info("You are awesome!")
 

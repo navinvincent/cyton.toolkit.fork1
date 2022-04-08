@@ -82,14 +82,14 @@ end
 nCells = 2000
 runTime = 200.0 # hours
 
-# thresholds    = 1.0:1.0:10.0
-# gstds         = 0.1:0.2:0.3
-# bclxllWeights = [0.1]#[0.1, 1, 10]
-# inhibitionFactors = [1.0]#0.2:0.2:0.8
-thresholds        = [2.0]
-gstds             = [0.3]
-bclxllWeights     = [0.1]
-inhibitionFactors = 0.2:0.2:0.2
+thresholds    = 1.0:1.0:10.0
+gstds         = 0.1:0.2:0.3
+bclxllWeights = [0.1]#[0.1, 1, 10]
+inhibitionFactors = [1.0]#0.2:0.2:0.8
+# thresholds        = [2.0]
+# gstds             = [0.3]
+# bclxllWeights     = [0.1]
+# inhibitionFactors = 0.2:0.2:0.2
 parameters = ConcreteParameters[]
 for threshold in thresholds
   for gstd in gstds
