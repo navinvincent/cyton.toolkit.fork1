@@ -10,10 +10,14 @@ struct WildTypeDrugged <: CellType end
 struct KO <: CellType end
 
 # Parameters from the Cyton2 paper
-λ_firstDivision = LogNormalParms(log(39.89), 0.28)
-λ_subsequentDivision = FixedDistributionParms(9.21)
-λ_divisionDestiny = LogNormalParms(log(71.86), 0.11)
+# λ_firstDivision = LogNormalParms(log(39.89), 0.28)
+# λ_subsequentDivision = FixedDistributionParms(9.21)
+# λ_divisionDestiny = LogNormalParms(log(71.86), 0.11)
 # λ_lifetime = LogNormalParms(log(116.8), 0.85)
+# Parameters from fitting MR-70 with cyton solver
+λ_firstDivision = LogNormalParms(log(46.2), 0.37)
+λ_subsequentDivision = FixedDistributionParms(11.1)
+λ_divisionDestiny = LogNormalParms(log(74.4), 0.08)
 
 # Parameters for the distributions protein level time courses
 TimeCourseParms(gstd::Float64) = GammaTimeCourseParms(LogNormal(0, gstd), 114.2, 4.6, 24.1)
