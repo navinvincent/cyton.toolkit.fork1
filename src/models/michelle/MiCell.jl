@@ -31,7 +31,7 @@ initialWeights = Dict{String, Float64}([
   "BIM"   => -5,
 ])
 initialThreshold = 6.0
-gracePeriod = 72.0
+gracePeriod = 0.0
 
 #----------------- Death machinery ------------------
 mutable struct ThresholdDeath <: FateTimer
@@ -43,13 +43,15 @@ mutable struct ThresholdDeath <: FateTimer
   proteinLevels::Dict{String, TimeCourseParameters}
   "The cell cannot die before this time"
   gracePeriod::Float64
+  "Toggle to allow death after first division"
+  canDie::Bool
 end
 function ThresholdDeath(threshold::Float64, weights::Dict{String, Float64}, levelGenerator::Function)
   pl = Dict{String, TimeCourseParameters}()
   for p in proteins
     pl[p] = levelGenerator()
   end
-  ThresholdDeath(threshold, weights, pl, gracePeriod)
+  ThresholdDeath(threshold, weights, pl, gracePeriod, false)
 end
 
 ensemble(::FateTimer, ::Float64) = 0.0
@@ -99,7 +101,10 @@ function step(timer::ThresholdDeath, time::Float64, Δt::Float64)
 end
 
 "Daughters inherit the protein levels"
-inherit(deathTimer::ThresholdDeath, time::Float64) = deathTimer
+function inherit(deathTimer::ThresholdDeath, time::Float64) 
+  deathTimer.canDie = true
+  deathTimer
+end
 
 isDead(timer::FateTimer) = false
 isDead(timer::ThresholdDeath) = timer.isDead
