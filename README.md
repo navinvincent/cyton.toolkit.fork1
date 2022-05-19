@@ -1,4 +1,3 @@
 # Cyton
 
-The Hodgkin lab, agent based model for describing adaptive immune reponses.
-
+The Hodgkin lab, agent based modelling framework for describing cell population dynamics.

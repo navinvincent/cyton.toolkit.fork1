@@ -3,7 +3,7 @@ abstract type FateTimer end
 export shouldDie, shouldDivide, inherit
 
 "Step the cell module forward by one time increment"
-step(::FateTimer, time::Float64, Δt::Float64) = error("stepTimer method not implemented")
+step(::FateTimer, time::Float64, Δt::Float64)::Union{CellEvent, Nothing} = error("stepTimer method not implemented")
 
 "This is called every time step. If it return true the cell is removed from the simmulation"
 shouldDie(::FateTimer, time::Float64) = false

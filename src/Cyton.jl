@@ -3,22 +3,50 @@ module Cyton
 using Agents
 import Base.length
 
-export modelTime, modelTimeStep, step, createPopulation, CellPopulation, cellCount, cohortCount
+export modelTime, modelTimeStep, step, createPopulation, cellCount, CellPopulation, cohortCount, Time, Duration
+
+"This models absolute time, e.g. birth time, model time."
+primitive type Time <: AbstractFloat 32 end
+Time(t::Int) = reinterpret(Time, convert(Float32, t))
+Time(t::Float64) = reinterpret(Time, convert(Float32, t))
+Time(t::Float32) = reinterpret(Time, t)
+Float32(t::Time) = reinterpret(Float32, t)
+Float64(t::Time) = Float64(reinterpret(Float32, t))
+
+"This models durations."
+primitive type Duration <: AbstractFloat 32 end
+Duration(t::Int) = reinterpret(Duration, convert(Float32, t))
+Duration(t::Float64) = reinterpret(Duration, convert(Float32, t))
+Duration(t::Float32) = reinterpret(Duration, t)
+Float32(d::Duration) = reinterpret(Float32, d)
+Float64(d::Duration) = Float64(reinterpret(Float32, d))
+
+import Base.+
+(+)(t::Time, d::Duration)::Time = Time(Float32(t)+Float32(d))
+(+)(d::Duration, t::Time)::Time = t + d
+(+)(d1::Duration, d2::Duration)::Duration = Duration(Float32(d1)+Float32(d2))
+
 
 include("probability/DistributionParms.jl")
 include("cells/CellModules.jl")
 include("cells/Cells.jl")
 include("utils/void_space.jl")
 
-noopCallback(::Cell, ::Float64) = nothing
+
+#------------------------ Cell population -----------------------
+"""
+The population of cells with convenince constructors. Ordinarily, this will be constructed
+by the framework.
+"""
 mutable struct CellPopulation
   model::AgentBasedModel
   startingCnt::Int
-  deathCallback::Function
-  divisionCallback::Function
+  eventCallbacks::Vector{Function} 
 end
-CellPopulation(model::AgentBasedModel) = CellPopulation(model, length(model.agents), noopCallback, noopCallback)
-CellPopulation(model::AgentBasedModel, deathCallback::Function, divisionCallback::Function) = CellPopulation(model, length(model.agents), deathCallback, divisionCallback)
+CellPopulation(model::AgentBasedModel) = CellPopulation(model, length(model.agents), Function[])
+CellPopulation(model::AgentBasedModel, eventCallbacks::Vector{Function}) = 
+CellPopulation(model, length(model.agents), eventCallbacks)
+
 
 function Base.getproperty(population::CellPopulation, v::Symbol)
   if v == :cells
@@ -28,6 +56,7 @@ function Base.getproperty(population::CellPopulation, v::Symbol)
 end
 
 Base.length(population::CellPopulation) = length(population.model.agents)
+#----------------------------------------------------------------
 
 "Get the current model time"
 modelTime(model::CellPopulation) = model.model.properties[:step_cnt] * modelTimeStep(model)
@@ -47,14 +76,14 @@ end
 """
 Create a population of cells:
  nCells: size of starting populations
- cellFactory: A function that retuns a cell
- deathCallback: A function that is called just before a cell dies
- divisionCallback: A function that is call just before a cell divides
+ cellFactory: A function that returns constructs a new cell
+ eventCallbacks: Function that are called when events occurs
+ 
+ `Division` and `Death` are two predefined events
 """
 function createPopulation(nCells::Int, 
   cellFactory::Function; 
-  deathCallback::Function=noopCallback,
-  divisionCallback::Function=noopCallback)
+  eventCallbacks::Vector{Function}=Function[])
 
   space = VoidSpace()
   scheduler = Schedulers.fastest
@@ -67,7 +96,7 @@ function createPopulation(nCells::Int,
     add_agent_pos!(agent, model)
   end
 
-  return CellPopulation(model, deathCallback, divisionCallback)
+  return CellPopulation(model, eventCallbacks)
 end
 
 "Step the population forward in time by one time step, with stimulus"
@@ -87,35 +116,40 @@ stepModel(model::AgentBasedModel) = model.properties[:step_cnt] += 1
 function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
   cell = agent.cell
 
-  willDie = false
-  willDivide = false
-  for timer in cell.timers
-    step(timer, time, Δt)
-    willDie = willDie || shouldDie(timer, time) 
-    willDivide = willDivide || shouldDivide(timer, time) 
+  for stimulus in stimuli
+    stimulate(cell, stimulus, time, Δt)
   end
 
-  if willDie
-    model.deathCallback(cell, time)
+  events = map(cell.timers) do timer
+    step(timer, time, Δt)
+  end
+  events = filter(x -> x ≠ nothing, events)
+
+  if any(typeof.(events) .== Death)
     die(cell)
     kill_agent!(agent, model.model)
-    notifyObservers(Death(), cell, time)
   end
-
-  for stimulus in stimuli
-    stimulate(cell, stimulus, time)
-  end
-
-  if willDivide
-    model.divisionCallback(cell, time)
+  
+  if any(typeof.(events) .== Division)
     new_cell = divide(cell, time)
-    notifyObservers(Division(), cell, time)
     if new_cell ≠ nothing
-      notifyObservers(Division(), new_cell, time)
       new_agent = CellAgent(model.model.maxid[]+1, new_cell)
       add_agent_pos!(new_agent, model.model)
+      for e in events
+        notifyObservers(e, new_cell, time)
+      end
     end
   end
+
+  for e in events
+    # Cell observers
+    notifyObservers(e, cell, time)
+    # Population observers
+    for cb in model.eventCallbacks
+      cb(e, time)
+    end
+  end
+
 end
 
 end

@@ -90,7 +90,13 @@ function shouldDie(death::ThresholdDeath, time::Float64)
   return e < t
 end
 
-step(timer::ThresholdDeath, time::Float64, Δt::Float64) = nothing
+function step(timer::ThresholdDeath, time::Float64, Δt::Float64) 
+  if shouldDie(timer, time)
+    return Death()
+  else
+    return nothing
+  end
+end
 
 "Daughters inherit the protein levels"
 inherit(deathTimer::ThresholdDeath, time::Float64) = deathTimer
@@ -117,7 +123,13 @@ end
 "Constructor for fresh cells"
 DivisionTimer(division::DistributionParmSet, destiny::DistributionParmSet) = DivisionTimer(draw(division), draw(destiny))
 
-step(timer::DivisionTimer, time::Float64, Δt::Float64) = nothing
+function step(timer::DivisionTimer, time::Float64, Δt::Float64) 
+  if shouldDivide(timer, time)
+    return Division()
+  else
+    return nothing
+  end
+end
 
 "Daughter cells get a new division timer and inherit the destiny timer"
 inherit(timer::DivisionTimer, time::Float64) = DivisionTimer(λ_subsequentDivision, time, timer.timeToDestiny)
@@ -142,7 +154,7 @@ function stimulate(death::ThresholdDeath, bh3::Bh3Stimulus, time::Float64)
   end
 end
 
-function stimulate(cell::Cell{WildTypeDrugged}, bh3::Bh3Stimulus, time::Float64)
+function stimulate(cell::Cell{WildTypeDrugged}, bh3::Bh3Stimulus, time::Float64, Δt::Float64)
   for timer in cell.timers
     stimulate(timer, bh3, time)
   end

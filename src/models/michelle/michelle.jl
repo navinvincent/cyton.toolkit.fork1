@@ -8,7 +8,7 @@ A cell model based on a mix of Michelle's experiments and the Cyton2 paper.
 """
 
 using Cyton
-import Cyton: shouldDie, shouldDivide, inherit, step, stimulate
+import Cyton: shouldDie, shouldDivide, inherit, step
 
 using DataFrames, Colors, Cairo
 
@@ -46,10 +46,13 @@ function run(model::CellPopulation, runDuration::Float64, stimulus::Stimulus)
 
   proteinSampleTimes = Set([72.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0])
   proteinLevels = DataFrame(time=Float64[], protein=String[], level=Float64[], genotype=String[])
+  
   deathTimes = Float64[]
   sizehint!(deathTimes, length(model)*10)
-  deathCounter(::Cell, time::Float64) = push!(deathTimes, time)
-  model.deathCallback = deathCounter
+  function deathCounter(::CellEvent, time::Float64) end
+  deathCounter(::Death, time::Float64) = push!(deathTimes, time)
+  push!(model.eventCallbacks, deathCounter)
+
   genotype = string(cellType(first(values(model.cells))))
 
   for (i, tm) in enumerate(time)
