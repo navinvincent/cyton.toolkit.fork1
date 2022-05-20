@@ -5,33 +5,13 @@ import Base.length
 
 export modelTime, modelTimeStep, step, createPopulation, cellCount, CellPopulation, cohortCount, Time, Duration
 
-"This models absolute time, e.g. birth time, model time."
-primitive type Time <: AbstractFloat 32 end
-Time(t::Int) = reinterpret(Time, convert(Float32, t))
-Time(t::Float64) = reinterpret(Time, convert(Float32, t))
-Time(t::Float32) = reinterpret(Time, t)
-Float32(t::Time) = reinterpret(Float32, t)
-Float64(t::Time) = Float64(reinterpret(Float32, t))
-
-"This models durations."
-primitive type Duration <: AbstractFloat 32 end
-Duration(t::Int) = reinterpret(Duration, convert(Float32, t))
-Duration(t::Float64) = reinterpret(Duration, convert(Float32, t))
-Duration(t::Float32) = reinterpret(Duration, t)
-Float32(d::Duration) = reinterpret(Float32, d)
-Float64(d::Duration) = Float64(reinterpret(Float32, d))
-
-import Base.+
-(+)(t::Time, d::Duration)::Time = Time(Float32(t)+Float32(d))
-(+)(d::Duration, t::Time)::Time = t + d
-(+)(d1::Duration, d2::Duration)::Duration = Duration(Float32(d1)+Float32(d2))
-
+const Time = Float64
+const Duration = Float64
 
 include("probability/DistributionParms.jl")
 include("cells/CellModules.jl")
 include("cells/Cells.jl")
 include("utils/void_space.jl")
-
 
 #------------------------ Cell population -----------------------
 """
@@ -113,7 +93,7 @@ end
 
 stepModel(model::AgentBasedModel) = model.properties[:step_cnt] += 1
 
-function doStep(agent::CellAgent, time::Float64, Δt::Float64, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
+function doStep(agent::CellAgent, time::Time, Δt::Duration, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
   cell = agent.cell
 
   for stimulus in stimuli

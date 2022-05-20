@@ -41,10 +41,10 @@ function BrduStatus(brduLo::DistributionParmSet, brduHi::DistributionParmSet)
 end
 
 mutable struct CycleTimer <: FateTimer
-  divTime::Float64
+  divtime::Time
   kG1::Float64
   kS::Float64
-  startTime::Float64
+  starttime::Time
   brdu::BrduStatus
 end
 
@@ -63,7 +63,7 @@ function CycleTimer(λ::DistributionParmSet,
   CycleTimer(l, kG1, kS, s, BrduStatus(brduLo, brduHi))
 end
 
-function phase(cycle::CycleTimer, time::Float64)
+function phase(cycle::CycleTimer, time::Time)
   "Returns the phase of the cycle and the proportion of time spent in that phase"
   δt = time - cycle.startTime
   divTime = cycle.divTime
@@ -80,7 +80,7 @@ function phase(cycle::CycleTimer, time::Float64)
 end
 
 "The step function for the cycle timer"
-function step(cycle::CycleTimer, time::Float64, Δt::Float64)
+function step(cycle::CycleTimer, time::Time, Δt::Duration)
   if time >= cycle.divTime + cycle.startTime
     # Cell has (fake) divided, reset the timer and BrdU level.
     cycle.startTime = time
@@ -89,8 +89,8 @@ function step(cycle::CycleTimer, time::Float64, Δt::Float64)
   end
 end
 
-remaining(cycle::CycleTimer, time::Float64) = cycle.divTime + cycle.startTime - time
-remaining(cell::Cell, time::Float64) = remaining(cell.timers[1], time)
+remaining(cycle::CycleTimer, time::Time) = cycle.divTime + cycle.startTime - time
+remaining(cell::Cell, time::Time) = remaining(cell.timers[1], time)
 
 function stretchedCellFactory(birth::Float64=0.0)
   cell = Cell(birth)
@@ -186,7 +186,7 @@ struct BrduStimulus <: Stimulus
   pulseEnd::Real
 end
 
-function stimulate(cell::Cell, stim::BrduStimulus, time::Float64)
+function stimulate(cell::Cell, stim::BrduStimulus, time::Time)
 
   pulseStart = stim.pulseStart
   pulseEnd   = stim.pulseEnd

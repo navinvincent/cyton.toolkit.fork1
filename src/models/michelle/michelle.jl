@@ -46,11 +46,11 @@ function run(model::CellPopulation, runDuration::Float64, stimulus::Stimulus)
 
   proteinSampleTimes = Set([72.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0])
   proteinLevels = DataFrame(time=Float64[], protein=String[], level=Float64[], genotype=String[])
-  
+
   deathTimes = Float64[]
   sizehint!(deathTimes, length(model)*10)
-  function deathCounter(::CellEvent, time::Float64) end
-  deathCounter(::Death, time::Float64) = push!(deathTimes, time)
+  function deathCounter(::CellEvent, time::Time) end
+  deathCounter(::Death, time::Time) = push!(deathTimes, time)
   push!(model.eventCallbacks, deathCounter)
 
   genotype = string(cellType(first(values(model.cells))))

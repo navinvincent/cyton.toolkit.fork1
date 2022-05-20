@@ -31,7 +31,7 @@ initialWeights = Dict{String, Float64}([
   "BIM"   => -5,
 ])
 initialThreshold = 6.0
-gracePeriod = 0.0
+gracePeriod = 72
 
 #----------------- Death machinery ------------------
 mutable struct ThresholdDeath <: FateTimer
@@ -42,7 +42,7 @@ mutable struct ThresholdDeath <: FateTimer
   "References to the current protein level"
   proteinLevels::Dict{String, TimeCourseParameters}
   "The cell cannot die before this time"
-  gracePeriod::Float64
+  gracePeriod::Duration
   "Toggle to allow death after first division"
   canDie::Bool
 end
@@ -55,7 +55,7 @@ function ThresholdDeath(threshold::Float64, weights::Dict{String, Float64}, leve
 end
 
 ensemble(::FateTimer, ::Float64) = 0.0
-function ensemble(death::ThresholdDeath, time::Float64) 
+function ensemble(death::ThresholdDeath, time::Time) 
   e = 0.0
   for (p, w) in death.weights
     level = death.proteinLevels[p]
@@ -63,7 +63,7 @@ function ensemble(death::ThresholdDeath, time::Float64)
   end
   return maximum([0.0, e])
 end
-function ensemble(cell::Cell, time::Float64)
+function ensemble(cell::Cell, time::Time)
   e = 0.0
   for timer in cell.timers
     e += ensemble(timer, time)
@@ -71,17 +71,17 @@ function ensemble(cell::Cell, time::Float64)
   return e
 end
 
-function proteinLevel(cell::Cell, protein::String, time::Float64)
+function proteinLevel(cell::Cell, protein::String, time::Time)
   l = 0.0
   for timer in cell.timers
     l += proteinLevel(timer, protein, time)
   end
   return l
 end
-proteinLevel(::FateTimer, ::String, ::Float64) = 0.0
-proteinLevel(death::ThresholdDeath, protein::String, time::Float64) = death.proteinLevels[protein](time)
+proteinLevel(::FateTimer, ::String, ::Time) = 0.0
+proteinLevel(death::ThresholdDeath, protein::String, time::Time) = death.proteinLevels[protein](time)
 
-function shouldDie(death::ThresholdDeath, time::Float64)
+function shouldDie(death::ThresholdDeath, time::Time)
   if time < death.gracePeriod
     return false
   end
@@ -92,7 +92,7 @@ function shouldDie(death::ThresholdDeath, time::Float64)
   return e < t
 end
 
-function step(timer::ThresholdDeath, time::Float64, Δt::Float64) 
+function step(timer::ThresholdDeath, time::Time, Δt::Duration) 
   if shouldDie(timer, time)
     return Death()
   else
@@ -101,7 +101,7 @@ function step(timer::ThresholdDeath, time::Float64, Δt::Float64)
 end
 
 "Daughters inherit the protein levels"
-function inherit(deathTimer::ThresholdDeath, time::Float64) 
+function inherit(deathTimer::ThresholdDeath, time::Time) 
   deathTimer.canDie = true
   deathTimer
 end
@@ -128,7 +128,7 @@ end
 "Constructor for fresh cells"
 DivisionTimer(division::DistributionParmSet, destiny::DistributionParmSet) = DivisionTimer(draw(division), draw(destiny))
 
-function step(timer::DivisionTimer, time::Float64, Δt::Float64) 
+function step(timer::DivisionTimer, time::Time, ::Duration) 
   if shouldDivide(timer, time)
     return Division()
   else
@@ -137,29 +137,29 @@ function step(timer::DivisionTimer, time::Float64, Δt::Float64)
 end
 
 "Daughter cells get a new division timer and inherit the destiny timer"
-inherit(timer::DivisionTimer, time::Float64) = DivisionTimer(λ_subsequentDivision, time, timer.timeToDestiny)
-DivisionTimer(r::DistributionParmSet, start::Float64, destiny::Float64) = DivisionTimer(draw(r) + start, destiny)
+inherit(timer::DivisionTimer, time::Time) = DivisionTimer(λ_subsequentDivision, time, timer.timeToDestiny)
+DivisionTimer(r::DistributionParmSet, start::Time, destiny::Float64) = DivisionTimer(draw(r) + start, destiny)
 
 "Indicate the cell will divide. Must be earlier than destiny and after the next division time"
-shouldDivide(division::DivisionTimer, time::Float64) = time < division.timeToDestiny && time > division.timeToDivision
+shouldDivide(division::DivisionTimer, time::Time) = time < division.timeToDestiny && time > division.timeToDivision
 #------------------------------------------------------
 
 
 #---------------- BH3 mimetic treatment ---------------
 struct Bh3Stimulus <: Stimulus
-  applicationTime::Float64
+  applicationTime::Time
   inhibitionFactor::Float64
   protein::String
 end
 
-function stimulate(timer::FateTimer, stimulus::Stimulus, time::Float64) end
-function stimulate(death::ThresholdDeath, bh3::Bh3Stimulus, time::Float64)
+function stimulate(timer::FateTimer, stimulus::Stimulus, time::Time) end
+function stimulate(death::ThresholdDeath, bh3::Bh3Stimulus, time::Time)
   if time == bh3.applicationTime
     death.weights[bh3.protein] *= bh3.inhibitionFactor
   end
 end
 
-function stimulate(cell::Cell{WildTypeDrugged}, bh3::Bh3Stimulus, time::Float64, Δt::Float64)
+function stimulate(cell::Cell{WildTypeDrugged}, bh3::Bh3Stimulus, time::Time, Δt::Duration)
   for timer in cell.timers
     stimulate(timer, bh3, time)
   end

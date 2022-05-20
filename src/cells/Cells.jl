@@ -71,10 +71,10 @@ CellAgent(cell::AbstractCell) = CellAgent(0, (0, 0), cell)
 CellAgent(id::Int, cell::AbstractCell) = CellAgent(id, (0, 0), cell)
 #----------------------------------------------------------
 
-function stimulate(::Cell, ::Stimulus, time::Float64, Δt::Float64)::Nothing end
+function stimulate(::Cell, ::Stimulus, time::Time, Δt::Duration)::Nothing end
 addTimer(cell::Cell, timer::FateTimer) = push!(cell.timers, timer)
 
-age(cell::Cell, time::Float64) = time - cell.birth
+age(cell::Cell, time::Time) = time - cell.birth
 
 "Internal, probably not necassary"
 function die(::AbstractCell)::Nothing end
@@ -83,7 +83,7 @@ function die(::AbstractCell)::Nothing end
 Create a daughter from the mother and reset the mother's state.
 This is called internally.
 """
-function divide(cell::AbstractCell, time::Float64) 
+function divide(cell::AbstractCell, time::Time) 
   # Reset the state of the mother
   cell.generation += 1
   cell.birth = time
@@ -104,7 +104,7 @@ end
 #----------------- observers --------------------
 """
 The adds a callback function,
-  `observer(event::CellEvent, cell::Cell, time::Float64)`, 
+  `observer(event::CellEvent, cell::Cell, time::Time)`, 
 to a cell. This function is called when `Cell` triggers a `CellEvent`.
 """
 function addObserver(event::CellEvent, cell::Cell, observer::Function) 
@@ -116,7 +116,7 @@ function addObserver(event::CellEvent, cell::Cell, observer::Function)
 end
 
 "This is an internal function."
-function notifyObservers(event::CellEvent, cell::Cell, time::Float64)
+function notifyObservers(event::CellEvent, cell::Cell, time::Time)
   for observer in get(cell.observers, event, Function[])
     observer(event, cell, time)
   end

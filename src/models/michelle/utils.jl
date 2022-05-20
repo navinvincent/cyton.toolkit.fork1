@@ -17,7 +17,7 @@ end
 function GammaTimeCourseParms(d::Distribution, A::Float64, α::Float64, β::Float64)
   GammaTimeCourseParms(rand(d)*A, α, β)
 end
-function (f::GammaTimeCourseParms)(time::Float64)
+function (f::GammaTimeCourseParms)(time::Time)
   f.A * pdf.(Gamma(f.α, f.β), time)
 end
 
@@ -28,7 +28,7 @@ end
 function PiecewiseLinear(d::Distribution, tMax::Float64)
   PiecewiseLinear(rand(d), tMax)
 end
-function (f::PiecewiseLinear)(time::Float64)
+function (f::PiecewiseLinear)(time::Time)
   tp = 72.0 # turning point
   if time < tp
     r = time/tp

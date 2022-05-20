@@ -62,9 +62,9 @@ function deathTimeHistograms(result::Result, parameter::Parameters)
   return h
 end
 
-if !isdefined(Main, :results)
-  results = deserialize("results.dat");
-end
+# if !isdefined(Main, :results)
+#   results = deserialize("results.dat");
+# end
 
 function bigPlot(parameter, result)
   counts = result.counts

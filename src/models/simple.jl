@@ -47,8 +47,8 @@ end
 function DeathTimer(r::DistributionParmSet)
   DeathTimer(draw(r))
 end
-inherit(timer::DeathTimer, time::Float64) = timer
-step(timer::DeathTimer, time::Float64, Δt::Float64) = nothing
+inherit(timer::DeathTimer, time::Time) = timer
+step(timer::DeathTimer, time::Time, Δt::Duration) = nothing
 
 "Time to divide drawn from distribution"
 struct DivisionTimer <: FateTimer
@@ -59,8 +59,8 @@ end
 DivisionTimer(division::DistributionParmSet, destiny::DistributionParmSet) = DivisionTimer(draw(division), draw(destiny))
 "Constructor for daughter cells"
 DivisionTimer(r::DistributionParmSet, start::Float64, destiny::Float64) = DivisionTimer(draw(r) + start, destiny)
-step(timer::DivisionTimer, time::Float64, Δt::Float64) = nothing
-inherit(timer::DivisionTimer, time::Float64) = DivisionTimer(λ_subsequentDivision, time, timer.timeToDestiny)
+step(timer::DivisionTimer, time::Time, Δt::Duration) = nothing
+inherit(timer::DivisionTimer, time::Time) = DivisionTimer(λ_subsequentDivision, time, timer.timeToDestiny)
 
 "Create a new cell"
 function cellFactory(birth::Float64=0.0)
@@ -71,10 +71,10 @@ function cellFactory(birth::Float64=0.0)
 end
 
 "Indicate whether the cell should die and be removed."
-shouldDie(death::DeathTimer, time::Float64) = time > death.timeToDeath
+shouldDie(death::DeathTimer, time::Time) = time > death.timeToDeath
 
 "Indicate the cell will divide. Must be earlier than destiny and after the next division time"
-shouldDivide(division::DivisionTimer, time::Float64) = error("is this working?")#time < division.timeToDestiny && time > division.timeToDivision
+shouldDivide(division::DivisionTimer, time::Time) = error("is this working?")#time < division.timeToDestiny && time > division.timeToDivision
 
 function run(model::CellPopulation, runDuration::Float64)
   print("Time to run:")

@@ -11,7 +11,8 @@ end
 freeWorkers()
 
 @info("Acquiring remote resources")
-addprocs(SlurmManager(20), partition="regular", t="01:10:00", mem_per_cpu="2G", unbuffered="")
+# addprocs(SlurmManager(20), partition="regular", t="01:10:00", mem_per_cpu="2G", unbuffered="")
+addprocs(10)
 
 @everywhere include("michelle.jl")
 @everywhere include("plotting.jl")
@@ -91,7 +92,6 @@ end
 for _ in 1:length(results)
   take!(resultChannel)
 end
-
 
 @info("Freeing resources")
 freeWorkers()
