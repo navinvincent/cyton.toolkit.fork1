@@ -100,9 +100,7 @@ function doStep(agent::CellAgent, time::Time, Δt::Duration, model::CellPopulati
     stimulate(cell, stimulus, time, Δt)
   end
 
-  events = map(cell.timers) do timer
-    step(timer, time, Δt)
-  end
+  events = [step(timer, time, Δt) for timer in cell.timers]
   events = filter(x -> x ≠ nothing, events)
 
   if any(typeof.(events) .== Death)

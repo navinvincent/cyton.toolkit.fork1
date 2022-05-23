@@ -3,16 +3,16 @@ abstract type FateTimer end
 export shouldDie, shouldDivide, inherit
 
 "Step the cell module forward by one time increment"
-step(timer::FateTimer, time::Time, Δt::Duration)::Union{CellEvent, Nothing} = error("step method not implemented for $(typeof(timer))")
+step(timer::FateTimer, ::Time, ::Duration)::Union{CellEvent, Nothing} = error("step method not implemented for $(typeof(timer))")
 
 "This is called every time step. If it return true the cell is removed from the simmulation"
-shouldDie(::FateTimer, time::Time) = false
+shouldDie(::FateTimer, ::Time) = false
 
 "Call every time step and potentiall returns a new cell"
-shouldDivide(::FateTimer, time::Time) = false
+shouldDivide(::FateTimer, ::Time) = false
 
 "Inheritence mechanism for fate timers"
-inherit(timer::FateTimer, time::Time) = error("inherit method not implemented")
+inherit(::FateTimer, ::Time) = error("inherit method not implemented for $(typeof(timer))")
 
 "A simple exponential decay of protein level"
 mutable struct PoissonTimer <: FateTimer
