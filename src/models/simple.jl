@@ -76,7 +76,7 @@ shouldDie(death::DeathTimer, time::Time) = time > death.timeToDeath
 "Indicate the cell will divide. Must be earlier than destiny and after the next division time"
 shouldDivide(division::DivisionTimer, time::Time) = error("is this working?")#time < division.timeToDestiny && time > division.timeToDivision
 
-function run(model::CellPopulation, runDuration::Float64)
+function run(model::CellPopulation, runDuration::Time)
   print("Time to run:")
   @time begin
     counts = DataFrame(time=Float64[], 
