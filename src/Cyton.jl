@@ -15,6 +15,8 @@ include("utils/void_space.jl")
 
 #------------------------ Cell population -----------------------
 """
+  CellPopulation
+
 The population of cells with convenince constructors. Ordinarily, this will be constructed
 by the framework.
 """
@@ -38,12 +40,27 @@ end
 Base.length(population::CellPopulation) = length(population.model.agents)
 #----------------------------------------------------------------
 
-"Get the current model time"
-modelTime(model::CellPopulation) = model.model.properties[:step_cnt] * modelTimeStep(model)
-"Get the model time step"
-modelTimeStep(model::CellPopulation) = model.model.properties[:Δt]
-"Get the number of cells in the population"
-cellCount(model::CellPopulation) = length(model.model.agents)
+"""
+  modelTime(model::CellPopulation)::Time
+
+Returns the current model time
+"""
+modelTime(model::CellPopulation)::Time = model.model.properties[:step_cnt] * modelTimeStep(model)
+
+"""
+  modelTimeStep(model::CellPopulation)::Duration
+  
+Returns the current model time step.
+"""
+modelTimeStep(model::CellPopulation)::Duration = model.model.properties[:Δt]
+
+"""
+  cellCount(model::CellPopulation)::Int
+
+Return the number of cells in the population
+"""
+cellCount(model::CellPopulation)::Int = length(model.model.agents)
+
 "The current cohort count, cell count normalised by generation number"
 function cohortCount(model::CellPopulation)
   cohort = 0.0
@@ -54,7 +71,11 @@ function cohortCount(model::CellPopulation)
 end
 
 """
-Create a population of cells:
+createPopulation(nCells::Int, 
+  cellFactory::Function; 
+  eventCallbacks::Vector{Function}=Function[])::CellPopulation
+
+  Create a population of cells:
  nCells: size of starting populations
  cellFactory: A function that returns constructs a new cell
  eventCallbacks: Function that are called when events occurs
@@ -79,12 +100,26 @@ function createPopulation(nCells::Int,
   return CellPopulation(model, eventCallbacks)
 end
 
-"Step the population forward in time by one time step, with stimulus"
+"""
+  step(model::CellPopulation, stimulus::T) where T<:Stimulus
+
+Step the population forward in time by one time step, with a single stimulus.
+"""
 step(model::CellPopulation, stimulus::T) where T<:Stimulus = step(model, [stimulus])
-"Step the population forward in time by one time step, with optional stimuli"
+
+
+"""
+  step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus
+
+  Step the population forward in time by one time step, with optional stimuli
+"""
 step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus = step!(model.model, (a, _) -> step(a, model, stimuli), stepModel)
 
-"Step a cell forward in time by one time step"
+"""
+  step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
+
+Step a cell forward in time by one time step.
+"""
 function step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
   Δt   = modelTimeStep(model)
   time = modelTime(model)
