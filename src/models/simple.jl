@@ -42,7 +42,7 @@ Daughter cells will inherit this. It is nulled if the cell becomes
 a memory cell.
 """
 struct DeathTimer <: FateTimer
-  timeToDeath::Float64
+  timeToDeath::Time
 end
 function DeathTimer(r::DistributionParmSet)
   DeathTimer(draw(r))
@@ -52,18 +52,18 @@ step(timer::DeathTimer, time::Time, Δt::Duration) = nothing
 
 "Time to divide drawn from distribution"
 struct DivisionTimer <: FateTimer
-  timeToDivision::Float64
-  timeToDestiny::Float64
+  timeToDivision::Time
+  timeToDestiny::Time
 end
 "Constructor for fresh cells"
 DivisionTimer(division::DistributionParmSet, destiny::DistributionParmSet) = DivisionTimer(draw(division), draw(destiny))
 "Constructor for daughter cells"
-DivisionTimer(r::DistributionParmSet, start::Float64, destiny::Float64) = DivisionTimer(draw(r) + start, destiny)
+DivisionTimer(r::DistributionParmSet, start::Time, destiny::Time) = DivisionTimer(draw(r) + start, destiny)
 step(timer::DivisionTimer, time::Time, Δt::Duration) = nothing
 inherit(timer::DivisionTimer, time::Time) = DivisionTimer(λ_subsequentDivision, time, timer.timeToDestiny)
 
 "Create a new cell"
-function cellFactory(birth::Float64=0.0)
+function cellFactory(birth::Time=0.0)
   cell = Cell(birth)
   addTimer(cell, DeathTimer(λ_lifetime))
   addTimer(cell, DivisionTimer(λ_firstDivision, λ_divisionDestiny))
@@ -79,7 +79,7 @@ shouldDivide(division::DivisionTimer, time::Time) = error("is this working?")#ti
 function run(model::CellPopulation, runDuration::Time)
   print("Time to run:")
   @time begin
-    counts = DataFrame(time=Float64[], 
+    counts = DataFrame(time=Time[], 
     total=[], 
     gen0 = [],
     gen1 = [],

@@ -121,8 +121,8 @@ end
 #---------------- Division machinery ------------------
 "Time to divide drawn from distribution"
 struct DivisionTimer <: FateTimer
-  timeToDivision::Float64
-  timeToDestiny::Float64
+  timeToDivision::Time
+  timeToDestiny::Time
 end
 
 "Constructor for fresh cells"

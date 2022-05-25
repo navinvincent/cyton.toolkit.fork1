@@ -22,4 +22,4 @@ mutable struct PoissonTimer <: FateTimer
   λ::Float64
 end
 
-step(timer::PoissonTimer, _::Float64, Δt::Duration) = timer.amount = timer.amount * exp(-Δt/timer.λ)
+step(timer::PoissonTimer, _::Time, Δt::Duration) = timer.amount = timer.amount * exp(-Δt/timer.λ)
