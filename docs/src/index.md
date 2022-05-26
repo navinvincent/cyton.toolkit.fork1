@@ -8,8 +8,71 @@ See this guide for an overview: [cyton-dynamics.github.io/](https://cyton-dynami
 CurrentModule = Cyton
 ```
 
+## Types and constructors
+```@docs
+Time
+```
+
+```@docs
+Duration
+```
+
+### Events
+```@docs
+CellEvent
+```
+
+```@docs
+Division
+```
+
+```@docs
+Death
+```
+
+### Cells and populations
 ```@docs
 CellPopulation
+```
+
+```@docs
+CellType
+```
+
+```@docs
+GenericCell
+```
+
+```@docs
+AbstractCell{T} where T <: CellType
+```
+
+```@docs
+Cell
+```
+
+```@docs
+Cell(birth::Time)
+```
+
+```@docs
+Cell(birth::Time, cellType::T) where T <: CellType
+```
+
+```@docs
+Cell(birth::Time, divisionCount::Int64)
+```
+
+### Stimuli
+```@docs
+Stimulus
+```
+
+## API methods and functions
+These are the methods than need to be implemented to build a model.
+
+```@docs
+stimulate
 ```
 
 ```@docs
@@ -18,6 +81,19 @@ step(::FateTimer, ::Time, ::Duration)
 
 ```@docs
 inherit
+```
+
+## Utility methods
+```@docs
+addTimer
+```
+
+```@docs
+age
+```
+
+```@docs
+addObserver
 ```
 
 ```@docs
@@ -30,6 +106,10 @@ modelTimeStep(model::CellPopulation)
 
 ```@docs
 cellCount(model::CellPopulation)
+```
+
+```@docs
+cohortCount(model::CellPopulation)
 ```
 
 ```@docs
@@ -46,10 +126,35 @@ step(model::CellPopulation, stimulus::T) where T<:Stimulus
 step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus
 ```
 
+### Probability distributions
 ```@docs
-step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
+DistributionParmSet
 ```
 
 ```@docs
+PoissonParms
+```
 
+```@docs
+FixedDistributionParms
+```
+
+```@docs
+draw(d::DistributionParmSet)
+```
+
+```@docs
+usefulMax
+```
+
+```@docs
+plotPdf
+```
+
+```@docs
+NormalParms
+```
+
+```@docs
+LogNormalParms
 ```

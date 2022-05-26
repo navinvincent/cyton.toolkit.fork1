@@ -1,6 +1,6 @@
 abstract type FateTimer end
 
-export shouldDie, shouldDivide, inherit
+export shouldDie, shouldDivide, inherit, FateTimer
 
 """
   step(::FateTimer, ::Time, ::Duration)::Union{CellEvent, Nothing}

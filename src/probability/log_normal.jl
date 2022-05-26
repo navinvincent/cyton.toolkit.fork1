@@ -1,12 +1,19 @@
 using  Plots
 import Distributions as dst
 
+"""
+LogNormalParms
+
+A log normal distribution parameterised as
+``P(x; \\mu, \\sigma) = \\frac{1}{x \\sigma \\sqrt{2 \\pi}} \\exp(-\\frac{(\\ln x - \\mu)^2}{2 \\sigma^2})``
+"""
 struct LogNormalParms <: DistributionParmSet
   μ::Real
   σ::Real
   "This provides a hint for setting plot axis limits"
   useful_max::Real
 end
+
 function LogNormalParms(μ::Real, σ::Real; natural=false)
   if natural
     f = 1+ (σ/μ)^2
@@ -17,6 +24,8 @@ function LogNormalParms(μ::Real, σ::Real; natural=false)
     return LogNormalParms(μ, σ, exp(μ + 3σ))
   end
 end
+
+usefulMax(d::LogNormalParms) = d.useful_max
 
 function draw(distribution::LogNormalParms)
   return dst.rand(dst.LogNormal(distribution.μ, distribution.σ))

@@ -1,6 +1,11 @@
 using  Plots
 import Distributions as dst
 
+"""
+NormalParms
+
+A normal distribution.
+"""
 struct NormalParms <: DistributionParmSet
   μ::Real
   σ::Real
@@ -9,6 +14,7 @@ struct NormalParms <: DistributionParmSet
 end
 NormalParms(μ::Real, σ::Real) = NormalParms(μ, σ, μ + 3σ)
 
+usefulMax(d::NormalParms) = d.useful_max
 
 function draw(distribution::NormalParms)
   return dst.rand(dst.Normal(distribution.μ, distribution.σ))

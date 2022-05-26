@@ -5,7 +5,18 @@ import Base.length
 
 export modelTime, modelTimeStep, step, createPopulation, cellCount, CellPopulation, cohortCount, Time, Duration
 
+"""
+Time
+
+A type alias for time-like quantities. Used to make function signatures more readable
+"""
 const Time = Float64
+
+"""
+Duration
+
+A type alias for duration-like quantities. Used to make function signatures more readable
+"""
 const Duration = Float64
 
 include("probability/DistributionParms.jl")
@@ -41,7 +52,7 @@ Base.length(population::CellPopulation) = length(population.model.agents)
 #----------------------------------------------------------------
 
 """
-  modelTime(model::CellPopulation)::Time
+modelTime(model::CellPopulation)::Time
 
 Returns the current model time
 """
@@ -55,14 +66,18 @@ Returns the current model time step.
 modelTimeStep(model::CellPopulation)::Duration = model.model.properties[:Δt]
 
 """
-  cellCount(model::CellPopulation)::Int
+cellCount(model::CellPopulation)::Int
 
 Return the number of cells in the population
 """
 cellCount(model::CellPopulation)::Int = length(model.model.agents)
 
-"The current cohort count, cell count normalised by generation number"
-function cohortCount(model::CellPopulation)
+"""
+cohortCount(model::CellPopulation)::Int
+
+Return the current cohort count, cell count normalised by generation number.
+"""
+function cohortCount(model::CellPopulation)::Int
   cohort = 0.0
   for cell in model.cells
     cohort += 2.0^-cell.generation
@@ -101,22 +116,23 @@ function createPopulation(nCells::Int,
 end
 
 """
-  step(model::CellPopulation, stimulus::T) where T<:Stimulus
+step(model::CellPopulation, stimulus::T) where T<:Stimulus
 
-Step the population forward in time by one time step, with a single stimulus.
+Step the population forward in time by one time step, with a single stimulus. This
+is called in the modeller's simulation loop.
 """
 step(model::CellPopulation, stimulus::T) where T<:Stimulus = step(model, [stimulus])
 
 
 """
-  step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus
+step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus
 
-  Step the population forward in time by one time step, with optional stimuli
+Step the population forward in time by one time step, with optional stimuli
 """
 step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus = step!(model.model, (a, _) -> step(a, model, stimuli), stepModel)
 
 """
-  step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
+step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
 
 Step a cell forward in time by one time step.
 """

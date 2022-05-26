@@ -1,11 +1,18 @@
 
+"""
+PoissonParms
+
+A Poisson distribution
+"""
 struct PoissonParms <: DistributionParmSet
   λ::Real
   useful_max::Real
-  function PoissonParms(λ)
-    return new(λ, 5λ)
-  end
 end
+function PoissonParms(λ)
+  return PoissonParms(λ, 5λ)
+end
+
+usefulMax(d::PoissonParms) = d.useful_max
 
 function draw(distribution::PoissonParms)
   return inv_pdf(distribution, rand())
