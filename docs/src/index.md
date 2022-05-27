@@ -69,7 +69,7 @@ Stimulus
 ```
 
 ## API methods and functions
-These are the methods than need to be implemented to build a model.
+These are the methods that you must implemented to create a model.
 
 ```@docs
 stimulate

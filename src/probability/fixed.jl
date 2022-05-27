@@ -10,7 +10,7 @@ struct FixedDistributionParms <: DistributionParmSet
   useful_max::Real
 end
 function FixedDistributionParms(x::Real)
-  return new(x, 3x)
+  return FixedDistributionParms(x, 3x)
 end
 
 usefulMax(d::FixedDistributionParms) = d.useful_max
