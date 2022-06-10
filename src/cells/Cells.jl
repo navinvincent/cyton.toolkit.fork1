@@ -1,9 +1,7 @@
 
-using Agents
-
 export addTimer, Cell, Stimulus, stimulate, age, CellEvent, Division, Death, addObserver, CellType, cellType, GenericCell
 
-#---------------------- Cell events -----------------------
+#---------------------- Cell events ---------------------
 """
 CellEvent
 
@@ -11,7 +9,7 @@ Top level type for modelling cellular events.
 `Death` and `Division` are handled internally but users should add additional
 events to model additional behaviour.
 """
-abstract type CellEvent end
+abstract type CellEvent <: CytonEvent end
 
 """
 Division
@@ -27,6 +25,7 @@ A timer (or something else) has triggered a cell death event
 """
 struct Death <: CellEvent end
 #----------------------------------------------------------
+
 
 #--------------------- Cell data types --------------------
 """
@@ -50,8 +49,7 @@ AbstractCell{T <: CellType}
 
 The base cell type for objects that carry individual cell state
 """
-abstract type AbstractCell{T <: CellType} end
-
+abstract type AbstractCell{T <: CellType} <: CytonAgent end
 
 """
 Cell{T} <: AbstractCell{T}
@@ -67,7 +65,7 @@ mutable struct Cell{T} <: AbstractCell{T}
   "Timers determing the fate of this cell"
   timers::Vector{FateTimer}
   "Observers watching for cell events"
-  observers::Dict{CellEvent, Vector{Function}}
+  observers::Dict{CytonEvent, Vector{Function}}
   "An arbitrary type "
   cellType::T
 end
@@ -107,16 +105,6 @@ Return the type, `T` of a cell
 cellType(::AbstractCell{T}) where T <: CellType = T
 #----------------------------------------------------------
 
-#-------- Types for wrapping the Agent framework ----------
-mutable struct CellAgent <: AbstractAgent
-  "These are required by the ABM framework"
-  id::Int
-  pos::NTuple{2, Int}
-  cell::AbstractCell
-end
-CellAgent(cell::AbstractCell) = CellAgent(0, (0, 0), cell)
-CellAgent(id::Int, cell::AbstractCell) = CellAgent(id, (0, 0), cell)
-#----------------------------------------------------------
 
 #------------------------ Stimuli -------------------------
 """
@@ -130,7 +118,7 @@ abstract type Stimulus end
 stimulute(::Cell, ::Stimulus, time::Time, Δt::Duration)
 
 This function is called when a stimulus is applied to a cell. This function is
-  overriden by the modeller to implement their required behaviour.
+overriden by the modeller to implement their required behaviour.
 """
 function stimulate(::Cell, ::Stimulus, time::Time, Δt::Duration)::Nothing end
 #----------------------------------------------------------
@@ -179,16 +167,18 @@ end
 addObserver
 
 Adds a callback function,
-  `observer(event::CellEvent, cell::Cell, time::Time)`, 
+  `observer(event::CytonEvent, cell::Cell, time::Time)`, 
 to a cell. This function is called when `Cell` triggers a `CellEvent`.
 """
-function addObserver(event::CellEvent, cell::Cell, observer::Function) 
+function addObserver(event::CytonEvent, cell::Cell, observer::Function) 
   observers = cell.observers
   if !haskey(observers, event)
     observers[event] = Function[]
   end
   push!(observers[event], observer)
 end
+
+function addObserver(::CytonEvent, ::CytonAgent, ::Function) end
 
 "This is an internal function."
 function notifyObservers(event::CellEvent, cell::Cell, time::Time)

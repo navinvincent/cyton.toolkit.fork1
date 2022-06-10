@@ -8,24 +8,15 @@ struct PoissonParms <: DistributionParmSet
   λ::Real
   useful_max::Real
 end
-function PoissonParms(λ)
-  return PoissonParms(λ, 5λ)
-end
+PoissonParms(λ) = PoissonParms(λ, 5λ)
 
 usefulMax(d::PoissonParms) = d.useful_max
 
-function draw(distribution::PoissonParms)
-  return inv_pdf(distribution, rand())
-end
+sample(distribution::PoissonParms) = inv_pdf(distribution, rand())
 
-function pdf(distribution::PoissonParms, t::Float64)
-  return distribution.λ * exp(-distribution.λ*t)
-end
+pdf(distribution::PoissonParms, t::Float64) = distribution.λ * exp(-distribution.λ*t)
 
-function inv_pdf(distribution::PoissonParms, p::Real)
-  return -log.(p/distribution.λ)/distribution.λ
-end
+inv_pdf(distribution::PoissonParms, p::Real) = -log.(p/distribution.λ)/distribution.λ
 
-function describe(distribution::PoissonParms)
-  return "poisson λ=$(distribution.λ)"
-end
+describe(distribution::PoissonParms) = "poisson λ=$(distribution.λ)"
+

@@ -27,13 +27,9 @@ end
 
 usefulMax(d::LogNormalParms) = d.useful_max
 
-function draw(distribution::LogNormalParms)
-  return dst.rand(dst.LogNormal(distribution.μ, distribution.σ))
-end
+sample(distribution::LogNormalParms) = dst.rand(dst.LogNormal(distribution.μ, distribution.σ))
 
-function draw(distribution::LogNormalParms, n::Int64)
-  return dst.rand(dst.LogNormal(distribution.μ, distribution.σ), n)
-end
+sample(distribution::LogNormalParms, n::Int64) = dst.rand(dst.LogNormal(distribution.μ, distribution.σ), n)
 
 function pdf(distribution::LogNormalParms, t::Float64)
   return dst.pdf(dst.LogNormal(distribution.μ, distribution.σ), t)

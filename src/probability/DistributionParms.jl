@@ -20,7 +20,7 @@ draw(d::DistributionParmSet)
 
 Return a random read number from the distribution.
 """
-draw(d::DistributionParmSet)::Float64 = error("draw not implemented for $(typeof(d)).")
+sample(d::DistributionParmSet)::Float64 = error("draw not implemented for $(typeof(d)).")
 
 include("poisson.jl")
 include("log_normal.jl")

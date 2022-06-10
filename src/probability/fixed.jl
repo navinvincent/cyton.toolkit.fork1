@@ -15,9 +15,7 @@ end
 
 usefulMax(d::FixedDistributionParms) = d.useful_max
 
-function draw(distribution::FixedDistributionParms)
-  return distribution.val
-end
+sample(distribution::FixedDistributionParms) = distribution.val
 
 function describe(distribution::FixedDistributionParms)
   return "fixed at $(distribution.val)"

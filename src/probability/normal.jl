@@ -16,18 +16,11 @@ NormalParms(μ::Real, σ::Real) = NormalParms(μ, σ, μ + 3σ)
 
 usefulMax(d::NormalParms) = d.useful_max
 
-function draw(distribution::NormalParms)
-  return dst.rand(dst.Normal(distribution.μ, distribution.σ))
-end
+sample(distribution::NormalParms) = dst.rand(dst.Normal(distribution.μ, distribution.σ))
 
-function draw(distribution::NormalParms, n::Int64)
-  return dst.rand(dst.Normal(distribution.μ, distribution.σ), n)
-end
+sample(distribution::NormalParms, n::Int64) = dst.rand(dst.Normal(distribution.μ, distribution.σ), n)
 
-function pdf(distribution::NormalParms, t::Float64)
-  return dst.pdf(dst.Normal(distribution.μ, distribution.σ), t)
-end
+pdf(distribution::NormalParms, t::Float64) = dst.pdf(dst.Normal(distribution.μ, distribution.σ), t)
 
-function describe(distribution::NormalParms)
-  return "normal μ=$(distribution.μ) σ=$(distribution.σ)"
-end
+describe(distribution::NormalParms) = "normal μ=$(distribution.μ) σ=$(distribution.σ)"
+
