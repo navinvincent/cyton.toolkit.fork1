@@ -36,7 +36,7 @@ function step(model::CytonModel, stimuli::Vector{T}=Vector{Stimulus}()) where T<
   Δt   = modelTimeStep(model)
   time = modelTime(model)
   for cell in model.cells
-    for environment in model.environment
+    for environment in model.environmentAgents
       interact(environment, cell, time, Δt)
     end
   end
