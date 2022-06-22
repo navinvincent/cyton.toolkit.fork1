@@ -68,7 +68,7 @@ createPopulation(nCells::Int,
  `Division` and `Death` are two predefined events
 """
 function createPopulation(nCells::Int, 
-  cellFactory::Function;
+  cellFactory::Function,
   environmentAgents::Vector{EnvironmentalAgent};
   eventCallbacks::Vector{Function}=Function[])
 
