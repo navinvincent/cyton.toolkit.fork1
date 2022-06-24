@@ -51,25 +51,27 @@ Step a cell forward in time by one time step.
 function step(agent::AgentImpl, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
   Δt   = modelTimeStep(model)
   time = modelTime(model)
-  doStep(agent.agent, time, Δt, model, stimuli)
+  doStep(agent,agent.agent, time, Δt, model, stimuli)
 end
 
 stepModel(model::AgentBasedModel) = model.properties[:step_cnt] += 1
 
-function doStep(environment::EnvironmentalAgent, time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
+function doStep(agent::AgentImpl,environment::EnvironmentalAgent, time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
+  
   for stimulus in stimuli
     stimulate(environment, stimulus, time, Δt)
   end
   
   events = step(environment, time, Δt, model)
-
-  for e in events
-    notifyObservers(e, environment, time)
+  if !(events==nothing)
+    for e in events
+      notifyObservers(e, environment, time)
+    end
   end
 end
   
-function doStep(cell::Cell, time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
-  cell = agent.cell
+function doStep(agent::AgentImpl,cell::Cell,time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
+  
 
   for stimulus in stimuli
     stimulate(cell, stimulus, time, Δt)
@@ -77,17 +79,21 @@ function doStep(cell::Cell, time::Time, Δt::Duration, model::CytonModel, stimul
 
   events = [step(timer, time, Δt) for timer in cell.timers]
   events = filter(x -> x ≠ nothing, events)
-
+  #println(events)
   if any(typeof.(events) .== Death)
-    die(cell)
-    kill_agent!(agent, model.model)
+    # die(cell)
+    # kill_agent!(agent, model.model)
+    # model.cells=filter!(x->x!=cell,model.cells)
+    remove_cell(cell,model,agent)
   end
   
   if any(typeof.(events) .== Division)
     new_cell = divide(cell, time)
     if new_cell ≠ nothing
-      new_agent = AgentImpl(model.model.maxid[]+1, new_cell)
-      add_agent_pos!(new_agent, model.model)
+      # new_agent = AgentImpl(model.model.maxid[]+1, new_cell)
+      # add_agent_pos!(new_agent, model.model)
+      # push!(model.cells,new_cell)
+      addCell(new_cell,model)
       for e in events
         notifyObservers(e, new_cell, time)
       end
@@ -104,4 +110,3 @@ function doStep(cell::Cell, time::Time, Δt::Duration, model::CytonModel, stimul
   end
 
 end
-
