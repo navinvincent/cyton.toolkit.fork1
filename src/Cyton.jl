@@ -25,9 +25,36 @@ mutable struct CytonModel
   startingCnt::Int
   eventCallbacks::Vector{Function} 
 end
-function CytonModel(model::AgentBasedModel, cells::Vector{Cell}, environment::Vector{EnvironmentalAgent}, callbacks::Vector{Function})
+function CytonModel(model::AgentBasedModel, cells::Vector{Cell{T}}, environment::Vector{EnvironmentalAgent}, callbacks::Vector{Function}) where T<: CellType
   CytonModel(model, cells, environment, length(cells), callbacks)
 end
+
+"""
+addCell(::Cell,::CytonModel) 
+
+Funciton to add new cells to the model. Will add the agent implementation to the 
+ABM framework and add the cell to the model's cell array.
+"""
+function addCell(new_cell::Cell,model::CytonModel)
+  new_agent = AgentImpl(model.model.maxid[]+1, new_cell)
+  add_agent_pos!(new_agent, model.model)
+  push!(model.cells,new_cell)
+  return nothing
+end
+
+"""
+remove_cell(::Cell,::CytonModel,::AgentImpl) 
+
+Funciton to kill cells in the model. 
+
+"""
+function remove_cell(cell::Cell,model::CytonModel,agent::AgentImpl)
+  die(cell)
+  kill_agent!(agent, model.model)
+  model.cells=filter!(x->x!=cell,model.cells)
+  return nothing
+end
+
 
 Base.length(population::CytonModel) = length(population.cells)
 #----------------------------------------------------------------
@@ -69,7 +96,7 @@ createPopulation(nCells::Int,
 """
 function createPopulation(nCells::Int, 
   cellFactory::Function,
-  environmentAgents::Vector{EnvironmentalAgent};
+  environmentAgents::Vector{EnvironmentalAgent}=EnvironmentalAgent[],
   eventCallbacks::Vector{Function}=Function[])
 
   space = VoidSpace()
@@ -92,8 +119,12 @@ function createPopulation(nCells::Int,
   end
 
  
-  return CytonModel(model, cells, environmentalAgents ,eventCallbacks)
+  return CytonModel(model, cells, environmentAgents ,eventCallbacks)
 end
+
+
+
+
 """
 interact(::EnvironmentalAgent, ::Cell, ::TIme, ::Duration)
 
@@ -102,3 +133,4 @@ Model the interaction between the cell and the environment.
 function interact(::EnvironmentalAgent, ::Cell, ::Time, ::Duration) end
 
 end
+
