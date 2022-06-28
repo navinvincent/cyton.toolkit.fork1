@@ -2,6 +2,9 @@ using Agents
 
 export modelTime, modelTimeStep, step
 
+
+
+
 """
 modelTime(model::CellPopulation)::Time
 
@@ -35,7 +38,7 @@ function step(model::CytonModel, stimuli::Vector{T}=Vector{Stimulus}()) where T<
 
   Δt   = modelTimeStep(model)
   time = modelTime(model)
-  for cell in model.cells
+  for (cell,id) in model.cells
     for environment in model.environmentAgents
       interact(environment, cell, time, Δt)
     end
@@ -51,12 +54,12 @@ Step a cell forward in time by one time step.
 function step(agent::AgentImpl, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
   Δt   = modelTimeStep(model)
   time = modelTime(model)
-  doStep(agent,agent.agent, time, Δt, model, stimuli)
+  doStep(agent.agent, time, Δt, model, stimuli)
 end
 
 stepModel(model::AgentBasedModel) = model.properties[:step_cnt] += 1
 
-function doStep(agent::AgentImpl,environment::EnvironmentalAgent, time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
+function doStep(environment::EnvironmentalAgent, time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
   
   for stimulus in stimuli
     stimulate(environment, stimulus, time, Δt)
@@ -70,8 +73,9 @@ function doStep(agent::AgentImpl,environment::EnvironmentalAgent, time::Time, Δ
   end
 end
   
-function doStep(agent::AgentImpl,cell::Cell,time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
+function doStep(cell::Cell,time::Time, Δt::Duration, model::CytonModel, stimuli::Vector{T}) where T<:Stimulus
   
+  agent_id=model.cells[cell]
 
   for stimulus in stimuli
     stimulate(cell, stimulus, time, Δt)
@@ -79,20 +83,14 @@ function doStep(agent::AgentImpl,cell::Cell,time::Time, Δt::Duration, model::Cy
 
   events = [step(timer, time, Δt) for timer in cell.timers]
   events = filter(x -> x ≠ nothing, events)
-  #println(events)
+  
   if any(typeof.(events) .== Death)
-    # die(cell)
-    # kill_agent!(agent, model.model)
-    # model.cells=filter!(x->x!=cell,model.cells)
-    remove_cell(cell,model,agent)
+    removeCell(cell,model,agent_id)
   end
   
   if any(typeof.(events) .== Division)
     new_cell = divide(cell, time)
     if new_cell ≠ nothing
-      # new_agent = AgentImpl(model.model.maxid[]+1, new_cell)
-      # add_agent_pos!(new_agent, model.model)
-      # push!(model.cells,new_cell)
       addCell(new_cell,model)
       for e in events
         notifyObservers(e, new_cell, time)
