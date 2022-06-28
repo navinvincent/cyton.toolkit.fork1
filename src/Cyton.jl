@@ -3,13 +3,14 @@ module Cyton
 using Agents
 import Base.length
 
-export modelTime, modelTimeStep, step, createPopulation, cellCount, CytonModel, cohortCount, Time, Duration, interact
+export modelTime, modelTimeStep, step, createPopulation, cellCount, CytonModel, cohortCount, Time, Duration
 
 include("BaseTypes.jl")
 include("probability/DistributionParms.jl")
 include("cells/FateTimers.jl")
 include("cells/Cells.jl")
 include("utils/void_space.jl")
+
 
 #------------------------- A Cyton model ------------------------
 """
@@ -20,12 +21,12 @@ constructed by the framework.
 """
 mutable struct CytonModel
   model::AgentBasedModel
-  cells::Vector{Cell}
+  cells::Dict{Cell,Int64}
   environmentAgents::Vector{EnvironmentalAgent}
   startingCnt::Int
   eventCallbacks::Vector{Function} 
 end
-function CytonModel(model::AgentBasedModel, cells::Vector{Cell{T}}, environment::Vector{EnvironmentalAgent}, callbacks::Vector{Function}) where T<: CellType
+function CytonModel(model::AgentBasedModel, cells::Dict{Cell{T},Int64}, environment::Vector{EnvironmentalAgent}, callbacks::Vector{Function}) where T<: CellType
   CytonModel(model, cells, environment, length(cells), callbacks)
 end
 
@@ -36,9 +37,10 @@ Funciton to add new cells to the model. Will add the agent implementation to the
 ABM framework and add the cell to the model's cell array.
 """
 function addCell(new_cell::Cell,model::CytonModel)
-  new_agent = AgentImpl(model.model.maxid[]+1, new_cell)
+  new_id=model.model.maxid[]+1
+  new_agent = AgentImpl(new_id, new_cell)
   add_agent_pos!(new_agent, model.model)
-  push!(model.cells,new_cell)
+  model.cells[new_cell]=new_id
   return nothing
 end
 
@@ -48,10 +50,10 @@ remove_cell(::Cell,::CytonModel,::AgentImpl)
 Funciton to kill cells in the model. 
 
 """
-function remove_cell(cell::Cell,model::CytonModel,agent::AgentImpl)
+function removeCell(cell::Cell,model::CytonModel,agent_id::Int64)
   die(cell)
-  kill_agent!(agent, model.model)
-  model.cells=filter!(x->x!=cell,model.cells)
+  kill_agent!(agent_id, model.model)
+  delete!(model.cells,cell)
   return nothing
 end
 
@@ -75,7 +77,7 @@ Return the current cohort count, cell count normalised by generation number.
 """
 function cohortCount(model::CytonModel)::Int
   cohort = 0.0
-  for cell in model.cells
+  for (cell,id) in model.cells
     cohort += 2.0^-cell.generation
   end
   return cohort/model.startingCnt
@@ -108,9 +110,9 @@ function createPopulation(nCells::Int,
     cell = cellFactory(0.0)
     agent = AgentImpl(id, cell)
     add_agent_pos!(agent, model)
-    cell
+    cell=>id
   end
-  
+  cells=Dict(cells)
   id = length(cells)
   for e in environmentAgents
     id += 1
@@ -131,6 +133,7 @@ interact(::EnvironmentalAgent, ::Cell, ::TIme, ::Duration)
 Model the interaction between the cell and the environment.
 """
 function interact(::EnvironmentalAgent, ::Cell, ::Time, ::Duration) end
+
 
 end
 
