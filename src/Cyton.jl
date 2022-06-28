@@ -3,83 +3,81 @@ module Cyton
 using Agents
 import Base.length
 
-export modelTime, modelTimeStep, step, createPopulation, cellCount, CellPopulation, cohortCount, Time, Duration
+export modelTime, modelTimeStep, step, createPopulation, cellCount, CytonModel, cohortCount, Time, Duration
 
-"""
-Time
-
-A type alias for time-like quantities. Used to make function signatures more readable
-"""
-const Time = Float64
-
-"""
-Duration
-
-A type alias for duration-like quantities. Used to make function signatures more readable
-"""
-const Duration = Float64
-
+include("BaseTypes.jl")
 include("probability/DistributionParms.jl")
-include("cells/CellModules.jl")
+include("cells/FateTimers.jl")
 include("cells/Cells.jl")
 include("utils/void_space.jl")
 
-#------------------------ Cell population -----------------------
-"""
-  CellPopulation
 
-The population of cells with convenince constructors. Ordinarily, this will be constructed
-by the framework.
+#------------------------- A Cyton model ------------------------
 """
-mutable struct CellPopulation
+CytonModel
+
+The population of cells and environmental agents with convenince constructors. Ordinarily, this will be 
+constructed by the framework.
+"""
+mutable struct CytonModel
   model::AgentBasedModel
+  cells::Dict{Cell,Int64}
+  environmentAgents::Vector{EnvironmentalAgent}
   startingCnt::Int
   eventCallbacks::Vector{Function} 
 end
-CellPopulation(model::AgentBasedModel) = CellPopulation(model, length(model.agents), Function[])
-CellPopulation(model::AgentBasedModel, eventCallbacks::Vector{Function}) = 
-CellPopulation(model, length(model.agents), eventCallbacks)
-
-
-function Base.getproperty(population::CellPopulation, v::Symbol)
-  if v == :cells
-    return Iterators.map(a -> a.cell, values(population.model.agents))
-  end
-  return getfield(population, v) # Just fall through for other fields
+function CytonModel(model::AgentBasedModel, cells::Dict{Cell{T},Int64}, environment::Vector{EnvironmentalAgent}, callbacks::Vector{Function}) where T<: CellType
+  CytonModel(model, cells, environment, length(cells), callbacks)
 end
 
-Base.length(population::CellPopulation) = length(population.model.agents)
+"""
+addCell(::Cell,::CytonModel) 
+
+Funciton to add new cells to the model. Will add the agent implementation to the 
+ABM framework and add the cell to the model's cell array.
+"""
+function addCell(new_cell::Cell,model::CytonModel)
+  new_id=model.model.maxid[]+1
+  new_agent = AgentImpl(new_id, new_cell)
+  add_agent_pos!(new_agent, model.model)
+  model.cells[new_cell]=new_id
+  return nothing
+end
+
+"""
+remove_cell(::Cell,::CytonModel,::AgentImpl) 
+
+Funciton to kill cells in the model. 
+
+"""
+function removeCell(cell::Cell,model::CytonModel,agent_id::Int64)
+  die(cell)
+  kill_agent!(agent_id, model.model)
+  delete!(model.cells,cell)
+  return nothing
+end
+
+
+Base.length(population::CytonModel) = length(population.cells)
 #----------------------------------------------------------------
 
-"""
-modelTime(model::CellPopulation)::Time
-
-Returns the current model time
-"""
-modelTime(model::CellPopulation)::Time = model.model.properties[:step_cnt] * modelTimeStep(model)
-
-"""
-  modelTimeStep(model::CellPopulation)::Duration
-  
-Returns the current model time step.
-"""
-modelTimeStep(model::CellPopulation)::Duration = model.model.properties[:Δt]
+include("stepping.jl")
 
 """
 cellCount(model::CellPopulation)::Int
 
 Return the number of cells in the population
 """
-cellCount(model::CellPopulation)::Int = length(model.model.agents)
+cellCount(model::CytonModel)::Int = length(model.model.agents)
 
 """
 cohortCount(model::CellPopulation)::Int
 
 Return the current cohort count, cell count normalised by generation number.
 """
-function cohortCount(model::CellPopulation)::Int
+function cohortCount(model::CytonModel)::Int
   cohort = 0.0
-  for cell in model.cells
+  for (cell,id) in model.cells
     cohort += 2.0^-cell.generation
   end
   return cohort/model.startingCnt
@@ -93,92 +91,49 @@ createPopulation(nCells::Int,
   Create a population of cells:
  nCells: size of starting populations
  cellFactory: A function that returns constructs a new cell
+ environmentFactory: A function that returns a Vector of environment agents
  eventCallbacks: Function that are called when events occurs
  
  `Division` and `Death` are two predefined events
 """
 function createPopulation(nCells::Int, 
-  cellFactory::Function; 
+  cellFactory::Function,
+  environmentAgents::Vector{EnvironmentalAgent}=EnvironmentalAgent[],
   eventCallbacks::Vector{Function}=Function[])
 
   space = VoidSpace()
   scheduler = Schedulers.fastest
   properties = Dict(:step_cnt => 0, :Δt => 0.1)
-  model = AgentBasedModel(CellAgent, space; properties, scheduler)
+  model = AgentBasedModel(AgentImpl, space; properties, scheduler)
 
-  for id in 1:nCells
+  cells = map(1:nCells) do id
     cell = cellFactory(0.0)
-    agent = CellAgent(id, cell)
+    agent = AgentImpl(id, cell)
     add_agent_pos!(agent, model)
+    cell=>id
+  end
+  cells=Dict(cells)
+  id = length(cells)
+  for e in environmentAgents
+    id += 1
+    agent = AgentImpl(id, e)
+    add_agent_pos!(agent,model)
   end
 
-  return CellPopulation(model, eventCallbacks)
+ 
+  return CytonModel(model, cells, environmentAgents ,eventCallbacks)
 end
 
-"""
-step(model::CellPopulation, stimulus::T) where T<:Stimulus
 
-Step the population forward in time by one time step, with a single stimulus. This
-is called in the modeller's simulation loop.
-"""
-step(model::CellPopulation, stimulus::T) where T<:Stimulus = step(model, [stimulus])
 
 
 """
-step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus
+interact(::EnvironmentalAgent, ::Cell, ::TIme, ::Duration)
 
-Step the population forward in time by one time step, with optional stimuli
+Model the interaction between the cell and the environment.
 """
-step(model::CellPopulation, stimuli::Vector{T}=Vector{Stimulus}()) where T<:Stimulus = step!(model.model, (a, _) -> step(a, model, stimuli), stepModel)
+function interact(::EnvironmentalAgent, ::Cell, ::Time, ::Duration) end
 
-"""
-step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
-
-Step a cell forward in time by one time step.
-"""
-function step(agent::CellAgent, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
-  Δt   = modelTimeStep(model)
-  time = modelTime(model)
-  doStep(agent, time, Δt, model, stimuli)
-end
-
-stepModel(model::AgentBasedModel) = model.properties[:step_cnt] += 1
-
-function doStep(agent::CellAgent, time::Time, Δt::Duration, model::CellPopulation, stimuli::Vector{T}) where T<:Stimulus
-  cell = agent.cell
-
-  for stimulus in stimuli
-    stimulate(cell, stimulus, time, Δt)
-  end
-
-  events = [step(timer, time, Δt) for timer in cell.timers]
-  events = filter(x -> x ≠ nothing, events)
-
-  if any(typeof.(events) .== Death)
-    die(cell)
-    kill_agent!(agent, model.model)
-  end
-  
-  if any(typeof.(events) .== Division)
-    new_cell = divide(cell, time)
-    if new_cell ≠ nothing
-      new_agent = CellAgent(model.model.maxid[]+1, new_cell)
-      add_agent_pos!(new_agent, model.model)
-      for e in events
-        notifyObservers(e, new_cell, time)
-      end
-    end
-  end
-
-  for e in events
-    # Cell observers
-    notifyObservers(e, cell, time)
-    # Population observers
-    for cb in model.eventCallbacks
-      cb(e, time)
-    end
-  end
 
 end
 
-end
