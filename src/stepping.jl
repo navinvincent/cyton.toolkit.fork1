@@ -108,3 +108,4 @@ function doStep(cell::Cell,time::Time, Δt::Duration, model::CytonModel, stimuli
   end
 
 end
+
