@@ -22,12 +22,13 @@ constructed by the framework.
 mutable struct CytonModel
   model::AgentBasedModel
   cells::Dict{Cell,Int64}
+  deadCells::Dict{Cell,Int64}
   environmentAgents::Vector{EnvironmentalAgent}
   startingCnt::Int
   eventCallbacks::Vector{Function} 
 end
 function CytonModel(model::AgentBasedModel, cells::Dict{Cell{T},Int64}, environment::Vector{EnvironmentalAgent}, callbacks::Vector{Function}) where T<: CellType
-  CytonModel(model, cells, environment, length(cells), callbacks)
+  CytonModel(model, cells,Dict{Cell,Int64}(), environment, length(cells), callbacks)
 end
 
 """
@@ -54,6 +55,7 @@ function removeCell(cell::Cell,model::CytonModel,agent_id::Int64)
   die(cell)
   kill_agent!(agent_id, model.model)
   delete!(model.cells,cell)
+  push!(model.deadCells,cell=>agent_id)
   return nothing
 end
 
@@ -132,6 +134,7 @@ interact(::EnvironmentalAgent, ::Cell, ::TIme, ::Duration)
 
 Model the interaction between the cell and the environment.
 """
+
 function interact(::EnvironmentalAgent, ::Cell, ::Time, ::Duration) end
 
 
